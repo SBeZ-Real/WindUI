@@ -1,6 +1,7 @@
 local KeySystem = {}
 
 local Creator = require("../modules/Creator")
+local task = Creator.Tasks
 local New = Creator.New
 local Tween = Creator.Tween
 
@@ -426,7 +427,10 @@ function KeySystem.new(Config, Filename, func, keyValidator)
 
 	local function handleSuccess(key)
 		KeyDialog:Close()()
-		writefile((Config.Folder or "Temp") .. "/" .. Filename .. ".key", tostring(key))
+        local path = (Config.Folder or "Temp") .. "/" .. Filename .. ".key"
+        local saved, message = false, "File storage unavailable"
+        if type(writefile) == "function" then saved, message = pcall(writefile, path, tostring(key)) end
+        if not saved then warn("[WindUI key storage] " .. tostring(message)) end
 		task.wait(0.4)
 		func(true)
 	end

@@ -14,7 +14,8 @@
         "watch": "chokidar . -i 'node_modules' -i 'dist' -i 'build' -c 'npm run dev --'",
         "live-build": "concurrently \"npm run live\" \"npm run watch --\"",
         "example-live-build": "INPUT_FILE=main_example.lua npm run live-build",
-        "updater": "python3 updater/main.py"
+        "updater": "python3 updater/main.py",
+        "test": "python3 tests/fluent/run.py"
     },
     "keywords": [
         "ui-library",

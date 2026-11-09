@@ -5,6 +5,7 @@ end)
 local UserInputService = cloneref(game:GetService("UserInputService"))
 
 local Creator = require("../modules/Creator")
+local task = Creator.Tasks
 local New = Creator.New
 local Tween = Creator.Tween
 
@@ -113,7 +114,7 @@ function Element:New(Config)
 
 	local EndedEvent
 
-	Creator.AddSignal(Keybind.KeybindFrame.UIElements.Main.MouseButton1Click, function()
+	Creator.AddSignal(Keybind.KeybindFrame.UIElements.Main.Activated, function()
 		if CanCallback then
 			if Keybind.CanChange then
 				Keybind.Picking = true
@@ -122,7 +123,7 @@ function Element:New(Config)
 				--task.wait(0.2)
 
 				local Event
-				Event = UserInputService.InputBegan:Connect(function(Input)
+				Event = Creator.AddSignal(UserInputService.InputBegan, function(Input)
 					local Key
 
 					if Input.UserInputType == Enum.UserInputType.Keyboard then
@@ -145,10 +146,10 @@ function Element:New(Config)
 					end
 
 					if EndedEvent then
-						EndedEvent:Disconnect()
+						Creator.RemoveSignal(EndedEvent)
 					end
 
-					EndedEvent = UserInputService.InputEnded:Connect(function(Input)
+					EndedEvent = Creator.AddSignal(UserInputService.InputEnded, function(Input)
 						if
 							Key
 							and (
@@ -159,11 +160,10 @@ function Element:New(Config)
 						then
 							Keybind.Picking = false
 
-							Keybind.UIElements.Keybind.Frame.Frame.TextLabel.Text = Key
-							Keybind.Value = Key
+							Keybind:Set(Key)
 
-							Event:Disconnect()
-							EndedEvent:Disconnect()
+							Creator.RemoveSignal(Event)
+							Creator.RemoveSignal(EndedEvent)
 						end
 					end)
 				end)
@@ -172,6 +172,7 @@ function Element:New(Config)
 	end)
 
 	Creator.AddSignal(UserInputService.InputBegan, function(input, gpe)
+		if gpe or #Config.WindUI.WindowManager.Order > 1 and Config.WindUI.WindowManager.Focused ~= Config.Window then return end
 		if UserInputService:GetFocusedTextBox() then
 			return
 		end

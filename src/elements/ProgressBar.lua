@@ -186,6 +186,7 @@ function Element:New(Config)
 			IndeterminateTween:Cancel()
 		end)
 		IndeterminateTween:Play()
+        if Config.WindUI.Performance and (Config.WindUI.Performance.Quality == "Off" or Config.WindUI.Performance.ReducedMotion) then ProgressBar.UIElements.Fill.Position = UDim2.fromScale(0.35, 0) end
 	end
 
 	local function Update(Value, Instant)

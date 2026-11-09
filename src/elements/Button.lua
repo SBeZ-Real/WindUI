@@ -1,4 +1,5 @@
 local Creator = require("../modules/Creator")
+local task = Creator.Tasks
 local New = Creator.New
 
 local Element = {}
@@ -95,7 +96,7 @@ function Element:New(Config)
 		Button:Lock()
 	end
 
-	Creator.AddSignal(Button.ButtonFrame.UIElements.Main.MouseButton1Click, function()
+	Creator.AddSignal(Button.ButtonFrame.UIElements.Main.Activated, function()
 		if CanCallback then
 			task.spawn(function()
 				Creator.SafeCallback(Button.Callback)

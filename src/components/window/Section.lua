@@ -2,6 +2,7 @@ local Section = {}
 
 
 local Creator = require("../../modules/Creator")
+local task = Creator.Tasks
 local New = Creator.New
 local Tween = Creator.Tween
 
@@ -123,7 +124,7 @@ function Section.New(SectionConfig, Parent, Folder, UIScale, Window)
             ChevronIconFrame.Visible = true
         end
         TabConfig.Parent = SectionFrame.Content
-        return TabModule.New(TabConfig, UIScale)
+        return Window:Tab(TabConfig)
     end
     
     function SectionModule:Open()
@@ -146,7 +147,7 @@ function Section.New(SectionConfig, Parent, Folder, UIScale, Window)
         end
     end
     
-    Creator.AddSignal(SectionFrame.TextButton.MouseButton1Click, function()
+    Creator.AddSignal(SectionFrame.TextButton.Activated, function()
         if SectionModule.Expandable then
             if SectionModule.Opened then
                 SectionModule:Close()

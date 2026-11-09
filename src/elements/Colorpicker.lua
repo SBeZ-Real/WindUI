@@ -23,9 +23,11 @@ local Element = {
 	--UIPadding = 8
 }
 
-local ActiveSlider = nil
 
 function Element:Colorpicker(Config, Window, WindUI, OnApply)
+    local scope = Creator.Scope.new(Creator.Scope.Get() or Window.Scope)
+    return scope:Run(function()
+    local ActiveSlider = nil
 	local Colorpicker = {
 		__type = "Colorpicker",
 		Title = Config.Title,
@@ -54,6 +56,8 @@ function Element:Colorpicker(Config, Window, WindUI, OnApply)
 	local ColorpickerFrame = ColorpickerModule.Create(nil, "Dialog", Window, WindUI, Window.UIElements.Main.Main)
 
 	Colorpicker.ColorpickerFrame = ColorpickerFrame
+    ColorpickerFrame.Scope = scope
+    ColorpickerFrame.OnResult = function() Config.IsShowed = false end
 
 	ColorpickerFrame.UIElements.Main.Size = UDim2.new(1, 0, 0, 0)
 
@@ -659,10 +663,11 @@ function Element:Colorpicker(Config, Window, WindUI, OnApply)
 	end
 
 	local CurInput = WindUI.GenerateGUID()
+    scope:Give(Colorpicker, function() Config.IsShowed = false; if WindUI.CurrentInput == CurInput then WindUI.CurrentInput = nil end end)
 
 	table.insert(
 		Connections,
-		UserInputService.InputChanged:Connect(function(input)
+		Creator.AddSignal(UserInputService.InputChanged, function(input)
 			if
 				input.UserInputType ~= Enum.UserInputType.MouseMovement
 				and input.UserInputType ~= Enum.UserInputType.Touch
@@ -682,7 +687,7 @@ function Element:Colorpicker(Config, Window, WindUI, OnApply)
 
 	table.insert(
 		Connections,
-		Colorpicker.UIElements.SatVibMap.InputBegan:Connect(function(input)
+		Creator.AddSignal(Colorpicker.UIElements.SatVibMap.InputBegan, function(input)
 			if
 				input.UserInputType ~= Enum.UserInputType.MouseButton1
 				and input.UserInputType ~= Enum.UserInputType.Touch
@@ -707,7 +712,7 @@ function Element:Colorpicker(Config, Window, WindUI, OnApply)
 
 	table.insert(
 		Connections,
-		HueSlider.InputBegan:Connect(function(input)
+		Creator.AddSignal(HueSlider.InputBegan, function(input)
 			if
 				input.UserInputType ~= Enum.UserInputType.MouseButton1
 				and input.UserInputType ~= Enum.UserInputType.Touch
@@ -733,7 +738,7 @@ function Element:Colorpicker(Config, Window, WindUI, OnApply)
 	if TransparencySlider then
 		table.insert(
 			Connections,
-			TransparencySlider.InputBegan:Connect(function(input)
+			Creator.AddSignal(TransparencySlider.InputBegan, function(input)
 				if
 					input.UserInputType ~= Enum.UserInputType.MouseButton1
 					and input.UserInputType ~= Enum.UserInputType.Touch
@@ -759,7 +764,7 @@ function Element:Colorpicker(Config, Window, WindUI, OnApply)
 
 	table.insert(
 		Connections,
-		UserInputService.InputEnded:Connect(function(input)
+		Creator.AddSignal(UserInputService.InputEnded, function(input)
 			ActiveSlider = nil
 
 			if WindUI.CurrentInput and WindUI.CurrentInput ~= CurInput then
@@ -770,6 +775,7 @@ function Element:Colorpicker(Config, Window, WindUI, OnApply)
 	)
 
 	return Colorpicker
+    end)
 end
 
 function Element:New(Config)
@@ -854,7 +860,7 @@ function Element:New(Config)
 		return Colorpicker:Update(c, t)
 	end
 
-	Creator.AddSignal(Colorpicker.UIElements.Colorpicker.MouseButton1Click, function()
+	Creator.AddSignal(Colorpicker.UIElements.Colorpicker.Activated, function()
 		if CanCallback and not Colorpicker.IsShowed then
 			Colorpicker.IsShowed = true
 

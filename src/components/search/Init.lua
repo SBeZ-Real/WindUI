@@ -10,6 +10,7 @@ local SearchBar = {
 }
 
 local Creator = require("../../modules/Creator")
+local task = Creator.Tasks
 local New = Creator.New
 local Tween = Creator.Tween
 

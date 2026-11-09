@@ -13,6 +13,7 @@ local CurrentCamera = workspace.CurrentCamera
 local CreateInput = require("./Input").New
 
 local Creator = require("../../modules/Creator")
+local task = Creator.Tasks
 local New = Creator.New
 local Tween = Creator.Tween
 
@@ -20,6 +21,8 @@ local TabBackgroundTransparency = 0.67
 
 function DropdownMenu.New(Config, Dropdown, Element, Type)
 	local DropdownModule = {}
+    local DropdownScope = Creator.Scope.Get() or Creator.RootScope
+    local RowsScope
 
 	if not Dropdown.Callback then
 		Type = "Menu"
@@ -114,27 +117,18 @@ function DropdownMenu.New(Config, Dropdown, Element, Type)
 		end
 	end
 
-	function UpdatePosition()
+	local function UpdatePosition()
 		local button = Dropdown.UIElements.Dropdown or Dropdown.DropdownFrame.UIElements.Main
 		local menu = Dropdown.UIElements.MenuCanvas
 
-		local availableSpaceBelow = Camera.ViewportSize.Y
-			- (button.AbsolutePosition.Y + button.AbsoluteSize.Y)
-			- Element.MenuPadding
-			- 54
-		local requiredSpace = menu.AbsoluteSize.Y + Element.MenuPadding
-
-		local offset = -54 -- topbar offset
-		if availableSpaceBelow < requiredSpace then
-			offset = requiredSpace - availableSpaceBelow - 54
-		end
-
-		menu.Position = UDim2.new(
-			0,
-			button.AbsolutePosition.X + button.AbsoluteSize.X,
-			0,
-			button.AbsolutePosition.Y + button.AbsoluteSize.Y - offset + (Element.MenuPadding * 2)
-		)
+        local viewport = Config.WindUI.DropdownGui.AbsoluteSize
+        local width = math.min(menu.AbsoluteSize.X, math.max(100, viewport.X - 16))
+        local height = math.min(menu.AbsoluteSize.Y, math.max(60, viewport.Y - 16))
+        menu.Size = UDim2.fromOffset(width, height)
+        local x = math.clamp(button.AbsolutePosition.X + button.AbsoluteSize.X, width + 8, math.max(width + 8, viewport.X - 8))
+        local y = button.AbsolutePosition.Y + button.AbsoluteSize.Y + 4
+        if y + height > viewport.Y - 8 then y = button.AbsolutePosition.Y - height - 4 end
+        menu.Position = UDim2.fromOffset(x, math.clamp(y, 8, math.max(8, viewport.Y - height - 8)))
 	end
 
 	local SearchLabel
@@ -287,6 +281,9 @@ function DropdownMenu.New(Config, Dropdown, Element, Type)
 			end
 		end
 
+        if RowsScope then RowsScope:Destroy() end
+        RowsScope = Creator.Scope.new(DropdownScope)
+        RowsScope:Run(function()
 		for Index, Tab in next, Values do
 			if Tab.Type ~= "Divider" then
 				local TabMain = {
@@ -464,7 +461,7 @@ function DropdownMenu.New(Config, Dropdown, Element, Type)
 				DropdownModule:Display()
 
 				if Type == "Dropdown" then
-					Creator.AddSignal(TabMain.UIElements.TabItem.MouseButton1Click, function()
+					Creator.AddSignal(TabMain.UIElements.TabItem.Activated, function()
 						if Dropdown.Locked or TabMain.Locked then
 							return
 						end
@@ -536,7 +533,7 @@ function DropdownMenu.New(Config, Dropdown, Element, Type)
 							Tween(TabMain.UIElements.TabItem, 0.08, { ImageTransparency = 1 }):Play()
 						end)
 					end
-					Creator.AddSignal(TabMain.UIElements.TabItem.MouseButton1Click, function()
+					Creator.AddSignal(TabMain.UIElements.TabItem.Activated, function()
 						if Dropdown.Locked or TabMain.Locked then
 							return
 						end
@@ -551,6 +548,7 @@ function DropdownMenu.New(Config, Dropdown, Element, Type)
 			end
 		end
 
+        end)
 		-- local maxWidth = Dropdown.MenuWidth or 0
 		-- if maxWidth == 0 then
 		--     for _, tabmain in next, Dropdown.Tabs do
@@ -589,53 +587,30 @@ function DropdownMenu.New(Config, Dropdown, Element, Type)
 	RecalculateListSize()
 	RecalculateCanvasSize()
 
-	function DropdownModule:Open()
-		if not Dropdown.Locked then
-			Dropdown.UIElements.Menu.Visible = true
-			Dropdown.UIElements.MenuCanvas.Visible = true
-			Dropdown.UIElements.MenuCanvas.Active = true
-			Dropdown.UIElements.Menu.Size = UDim2.new(1, 0, 0, 0)
-			Tween(Dropdown.UIElements.Menu, 0.1, {
-				Size = UDim2.new(1, 0, 1, 0),
-				ImageTransparency = 0,
-			}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out):Play()
-
-			task.spawn(function()
-				task.wait(0.1)
-				if Dropdown.Locked then
-					return
-				end
-				Dropdown.Opened = true
-			end)
-
-			UpdatePosition()
-		end
-	end
-
-	function DropdownModule:Close()
-		Dropdown.Opened = false
-
-		Tween(Dropdown.UIElements.Menu, 0.25, {
-			Size = UDim2.new(1, 0, 0, 0),
-			ImageTransparency = 1,
-		}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out):Play()
-
-		task.spawn(function()
-			task.wait(0.1)
-			Dropdown.UIElements.Menu.Visible = false
-		end)
-
-		task.spawn(function()
-			task.wait(0.25)
-			Dropdown.UIElements.MenuCanvas.Visible = false
-			Dropdown.UIElements.MenuCanvas.Active = false
-		end)
-	end
+    function DropdownModule:Open()
+        if Dropdown.Locked or not Config.Window.CanDropdown then return end
+        if Config.Window.Popup and Config.Window.Popup ~= DropdownModule then Config.Window.Popup:Close() end
+        Config.Window.Popup = DropdownModule
+        Dropdown.Opened = true
+        Dropdown.UIElements.Menu.Visible = true
+        Dropdown.UIElements.MenuCanvas.Visible = true
+        Dropdown.UIElements.MenuCanvas.Active = true
+        Dropdown.UIElements.Menu.Size = UDim2.fromScale(1, 1)
+        Tween(Dropdown.UIElements.Menu, 0.1, { ImageTransparency = 0 }):Play()
+        UpdatePosition()
+    end
+    function DropdownModule:Close()
+        Dropdown.Opened = false
+        Dropdown.UIElements.Menu.Visible = false
+        Dropdown.UIElements.MenuCanvas.Visible = false
+        Dropdown.UIElements.MenuCanvas.Active = false
+        if Config.Window.Popup == DropdownModule then Config.Window.Popup = nil end
+    end
 
 	Creator.AddSignal(
 		(
-			Dropdown.UIElements.Dropdown and Dropdown.UIElements.Dropdown.MouseButton1Click
-			or Dropdown.DropdownFrame.UIElements.Main.MouseButton1Click
+			Dropdown.UIElements.Dropdown and Dropdown.UIElements.Dropdown.Activated
+			or Dropdown.DropdownFrame.UIElements.Main.Activated
 		),
 		function()
 			DropdownModule:Open()
@@ -643,6 +618,7 @@ function DropdownMenu.New(Config, Dropdown, Element, Type)
 	)
 
 	Creator.AddSignal(UserInputService.InputBegan, function(Input)
+        if Dropdown.Opened and (Input.KeyCode == Enum.KeyCode.Escape or Input.KeyCode == Enum.KeyCode.ButtonB) then DropdownModule:Close(); return end
 		if
 			Input.UserInputType == Enum.UserInputType.MouseButton1
 			or Input.UserInputType == Enum.UserInputType.Touch
@@ -654,15 +630,16 @@ function DropdownMenu.New(Config, Dropdown, Element, Type)
 			local ButtonAbsPos = DropdownButton.AbsolutePosition
 			local ButtonAbsSize = DropdownButton.AbsoluteSize
 
-			local isClickOnDropdown = Mouse.X >= ButtonAbsPos.X
-				and Mouse.X <= ButtonAbsPos.X + ButtonAbsSize.X
-				and Mouse.Y >= ButtonAbsPos.Y
-				and Mouse.Y <= ButtonAbsPos.Y + ButtonAbsSize.Y
+			local pointer = Input.UserInputType == Enum.UserInputType.Touch and Input.Position or Vector2.new(Mouse.X, Mouse.Y)
+            local isClickOnDropdown = pointer.X >= ButtonAbsPos.X
+				and pointer.X <= ButtonAbsPos.X + ButtonAbsSize.X
+				and pointer.Y >= ButtonAbsPos.Y
+				and pointer.Y <= ButtonAbsPos.Y + ButtonAbsSize.Y
 
-			local isClickOnMenu = Mouse.X >= AbsPos.X
-				and Mouse.X <= AbsPos.X + AbsSize.X
-				and Mouse.Y >= AbsPos.Y
-				and Mouse.Y <= AbsPos.Y + AbsSize.Y
+			local isClickOnMenu = pointer.X >= AbsPos.X
+				and pointer.X <= AbsPos.X + AbsSize.X
+				and pointer.Y >= AbsPos.Y
+				and pointer.Y <= AbsPos.Y + AbsSize.Y
 
 			if Config.Window.CanDropdown and Dropdown.Opened and not isClickOnDropdown and not isClickOnMenu then
 				DropdownModule:Close()

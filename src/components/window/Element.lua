@@ -1,5 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Creator = require("../../modules/Creator")
+local task = Creator.Tasks
 local New = Creator.New
 local NewRoundFrame = Creator.NewRoundFrame
 local Tween = Creator.Tween
@@ -60,6 +61,7 @@ local function GetTextColorForHSB(color)
 end
 
 return function(Config)
+    Config.TextOffset = Config.TextOffset or 0
 	local Element = {
 		Title = Config.Title,
 		Desc = Config.Desc or nil,
@@ -457,14 +459,15 @@ return function(Config)
 				--Tween(Main, 0.12, { ImageTransparency = Element.Color and 0.15 or 0.9 }):Play()
 				Tween(Hover, 0.12, { ImageTransparency = 0.9 }):Play()
 				Tween(HoverOutline, 0.12, { ImageTransparency = 0.8 }):Play()
+
+			end
+		end)
 				Creator.AddSignal(Main.MouseMoved, function(x, y)
 					Hover.HoverGradient.Offset =
 						Vector2.new(((x - Main.AbsolutePosition.X) / Main.AbsoluteSize.X) - 0.5, 0)
 					HoverOutline.HoverGradient.Offset =
 						Vector2.new(((x - Main.AbsolutePosition.X) / Main.AbsoluteSize.X) - 0.5, 0)
 				end)
-			end
-		end)
 		Creator.AddSignal(Main.InputEnded, function()
 			if CanHover then
 				--Tween(Main, 0.12, { ImageTransparency = Element.Color and 0.05 or 0.93 }):Play()

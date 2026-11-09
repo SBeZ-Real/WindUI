@@ -1,6 +1,7 @@
 local Code = {}
 
 local Creator = require("../../modules/Creator")
+local task = Creator.Tasks
 local New = Creator.New
 local Tween = Creator.Tween
 
@@ -215,7 +216,7 @@ function Code.New(Code, Window, Parent, Callback, UIScale)
 			Tween(CopyButton.Button, 0.08, { ImageTransparency = 1 }):Play()
 			Tween(CopyButton.Button.UIScale, 0.08, { Scale = 1 }):Play()
 		end)
-		Creator.AddSignal(CopyButton.MouseButton1Click, function()
+		Creator.AddSignal(CopyButton.Activated, function()
 			if Callback then
 				Callback()
 				local CheckIcon = Creator.Icon("check")

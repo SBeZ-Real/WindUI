@@ -1,11 +1,14 @@
 local Tooltip = {}
 
 local Creator = require("../../modules/Creator")
+local task = Creator.Tasks
 local New = Creator.New
 local Tween = Creator.Tween
 
 
 function Tooltip.New(Title, Parent, IsArrow, ColorType, Size, IsTextWrap)
+    local scope = Creator.Scope.new(Creator.Scope.Get() or Creator.RootScope)
+    return scope:Run(function()
     local TooltipModule = {
         Container = nil,
         TooltipSize = 16,
@@ -127,9 +130,26 @@ function Tooltip.New(Title, Parent, IsArrow, ColorType, Size, IsTextWrap)
         }),
     })
     TooltipModule.Container = Container
+    local adjusting = false
+    local function fit()
+        if adjusting or not Container.Visible then return end
+        adjusting = true
+        local screen = Parent:IsA("ScreenGui") and Parent or Parent:FindFirstAncestorWhichIsA("ScreenGui")
+        if screen then
+            local size, position, bounds = Container.AbsoluteSize, Container.AbsolutePosition, screen.AbsoluteSize
+            local dx = math.max(8 - position.X, math.min(0, bounds.X - 8 - position.X - size.X))
+            local dy = math.max(8 - position.Y, math.min(0, bounds.Y - 8 - position.Y - size.Y))
+            if dx ~= 0 or dy ~= 0 then Container.Position = UDim2.new(Container.Position.X.Scale, Container.Position.X.Offset + dx, Container.Position.Y.Scale, Container.Position.Y.Offset + dy) end
+            Container.UISizeConstraint.MaxSize = Vector2.new(math.min(400, math.max(80, bounds.X - 16)), math.max(40, bounds.Y - 16))
+        end
+        adjusting = false
+    end
+    Creator.AddSignal(Container:GetPropertyChangedSignal("AbsolutePosition"), fit)
+    Creator.AddSignal(Container:GetPropertyChangedSignal("AbsoluteSize"), fit)
     
     function TooltipModule:Open() 
         Container.Visible = true
+        fit()
         
         --Tween(Container, .16, { GroupTransparency = 0 }, Enum.EasingStyle.Quint, Enum.EasingDirection.Out):Play()
         Tween(Container.Background, .2, { ImageTransparency = 0 }, Enum.EasingStyle.Quint, Enum.EasingDirection.Out):Play()
@@ -151,10 +171,12 @@ function Tooltip.New(Title, Parent, IsArrow, ColorType, Size, IsTextWrap)
             
             Container.Visible = false
             Container:Destroy() 
+            scope:Destroy()
         end
     end
     
-    return TooltipModule
+    return scope:Bind(TooltipModule)
+    end)
 end
 
 

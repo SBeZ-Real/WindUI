@@ -65,7 +65,7 @@ function Element:New(Config)
 	end
 
 	function Code:Set(code)
-		return Code.SetCode(code)
+		return Code:SetCode(code)
 	end
 
 	function Code:Destroy()

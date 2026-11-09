@@ -127,11 +127,11 @@ function Element:New(Config)
 		-- end)
 	else
 		if Toggle.Type == "Toggle" then
-			Creator.AddSignal(ToggleFrame.ToggleFrame.Hitbox.MouseButton1Click, function()
+			Creator.AddSignal(ToggleFrame.ToggleFrame.Hitbox.Activated, function()
 				Toggle:Set(not Toggle.Value, nil, Config.Window.NewElements)
 			end)
 		elseif Toggle.Type == "Checkbox" then
-			Creator.AddSignal(ToggleFrame.MouseButton1Click, function()
+			Creator.AddSignal(ToggleFrame.Activated, function()
 				Toggle:Set(not Toggle.Value, nil, Config.Window.NewElements)
 			end)
 		end

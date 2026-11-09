@@ -26,7 +26,7 @@ function Element:New(Config: ConfigType)
 	local Viewport = {
 		__type = "Viewport",
 		Object = Config.Object,
-		Camera = Config.Camera or Instance.new("Camera"),
+		Camera = Config.Camera or Creator.New("Camera", {}),
 		Interactive = Config.Interactive or false,
 		Height = Config.Height or 200,
 		Focused = Config.Focused ~= false,
@@ -229,6 +229,7 @@ function Element:New(Config: ConfigType)
 	end
 
 	Viewport.Main = Main
+    Viewport.ElementFrame = Main
 
 	return Viewport.__type, Viewport
 end
