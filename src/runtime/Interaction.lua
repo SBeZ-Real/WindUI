@@ -4,6 +4,7 @@ function Interaction.Attach(content, config, scope)
     local root = content.ElementFrame
     if not root or not root:IsA("GuiObject") then return end
     local state = "idle"
+    local wash = Creator.New("Frame", { Name = "FluentInteraction", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Active = false, ZIndex = 38, Parent = root, ThemeTag = { BackgroundColor3 = "Text" } })
     local selectable = setmetatable({}, { __mode = "k" })
     local shield = Creator.New("TextButton", { Name = "FluentDisabled", Text = "", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, AutoButtonColor = false, Active = true, Selectable = false, Visible = false, ZIndex = 39, Parent = root })
     local stroke = Creator.New("UIStroke", { Name = "FluentFocus", Thickness = 1, Transparency = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = root, ThemeTag = { Color = "Primary" } })
@@ -29,7 +30,11 @@ function Interaction.Attach(content, config, scope)
             end
         end
         stroke.Transparency = (value == "focused" or value == "invalid") and 0 or 1
-        if value == "focused" then stroke.Transparency = 0 end
+        local tokens = config.Window.Tokens
+        if tokens then
+            wash.BackgroundTransparency = value == "hover" and tokens.InteractionState.Hover or value == "pressed" and tokens.InteractionState.Pressed or blocked and tokens.InteractionState.Disabled or 1
+            if value == "focused" then stroke.Transparency = tokens.InteractionState.Focus end
+        end
         Creator.SetThemeTag(stroke, { Color = value == "invalid" and "Error" or "Primary" })
         status.Visible = value == "invalid" or value == "loading"
         status.Text = message or (value == "loading" and "Loading…" or "Invalid value")
@@ -44,15 +49,21 @@ function Interaction.Attach(content, config, scope)
         table.insert(controls, root)
         for _, object in ipairs(controls) do
             if object:IsA("TextLabel") or object:IsA("TextButton") or object:IsA("TextBox") then
-                if object.TextSize >= 14 and object.TextSize <= 18 then object.TextSize = tokens.Typography.Body end
+                local scale = object:GetAttribute("FluentTypography")
+                if not scale then scale = object.TextSize <= 13 and "Caption" or object.TextSize >= 20 and "Title" or "Body"; object:SetAttribute("FluentTypography", scale) end
+                object.TextSize = tokens.Typography[scale]
                 object.FontFace = Font.new(tokens.Typography.Font, object.FontFace.Weight, object.FontFace.Style)
             end
             if object:IsA("UICorner") and object.CornerRadius.Offset > 0 and object.CornerRadius.Offset < 24 then object.CornerRadius = UDim.new(0, tokens.Radius.Control) end
             if object:IsA("GuiButton") and object ~= shield then object.Selectable = state ~= "disabled" and state ~= "loading" end
         end
+        local padding = root:FindFirstChildOfClass("UIPadding")
+        if padding then
+            for _, key in ipairs({ "PaddingTop", "PaddingBottom", "PaddingLeft", "PaddingRight" }) do padding[key] = UDim.new(0, tokens.Spacing.Control) end
+        end
         local constraint = root:FindFirstChild("FluentMinimum")
         if not constraint then constraint = Creator.New("UISizeConstraint", { Name = "FluentMinimum", Parent = root }) end
-        constraint.MinSize = Vector2.new(0, game:GetService("UserInputService").TouchEnabled and tokens.Density.Touch or tokens.Density.Comfortable)
+        constraint.MinSize = Vector2.new(0, game:GetService("UserInputService").TouchEnabled and tokens.Density.Touch or config.Window.Compact and tokens.Density.Compact or tokens.Density.Comfortable)
     end
     scope:Connect(root.SelectionGained, function() if not content.Locked then content:SetState("focused") end end)
     scope:Connect(root.SelectionLost, function() if state == "focused" then content:SetState("idle") end end)

@@ -25617,37 +25617,40 @@ function z.Tween(A,B,C,...)
 local F=b.Owners[A]or b.Get()or z.RootScope
 local G=F.Context and F.Context.Performance
 local H=table.pack(...)
+local J=F.Context and F.Context.Window and F.Context.Window.Tokens
+if J then B*=B<=0.12 and J.Motion.Fast/0.1 or J.Motion.Normal/0.18 end
 if G and(G.ReducedMotion or G.Quality=="Off")then
 B=0
 H[3],H[4],H[5],H.n=0,false,0,5
-for J,L in pairs(C)do A[J]=L end
+for L,M in pairs(C)do A[L]=M end
 elseif G and G.Quality=="Low"then
 B=math.min(B,0.08)
 end
-local J=z.ActiveTweens[A]or{}
-z.ActiveTweens[A]=J
-for L,M in pairs(J)do
-for N in pairs(C)do
-if M[N]~=nil then L:Cancel();break end
+if B==0 then H[3],H[4],H[5],H.n=0,false,0,5 end
+local L=z.ActiveTweens[A]or{}
+z.ActiveTweens[A]=L
+for M,N in pairs(L)do
+for O in pairs(C)do
+if N[O]~=nil then M:Cancel();break end
 end
 end
-local L=l:Create(A,TweenInfo.new(B,table.unpack(H,1,H.n)),C)
-J[L]=C
-local M
-M=L.Completed:Connect(function()
-J[L]=nil
-F:Forget(L)
+local M=l:Create(A,TweenInfo.new(B,table.unpack(H,1,H.n)),C)
+L[M]=C
+local N
+N=M.Completed:Connect(function()
+L[M]=nil
 F:Forget(M)
-M:Disconnect()
+F:Forget(N)
+N:Disconnect()
 end)
-F:Give(M,function(N)N:Disconnect()end,"Connections")
-F:Give(L,function(N)
-M:Disconnect()
-J[N]=nil
-N:Cancel()
-N:Destroy()
+F:Give(N,function(O)O:Disconnect()end,"Connections")
+F:Give(M,function(O)
+N:Disconnect()
+L[O]=nil
+O:Cancel()
+O:Destroy()
 end,"Tweens")
-return L
+return M
 end
 
 
@@ -26683,6 +26686,7 @@ local J=H.UIElements.Main.Frame.TextLabel
 J.Visible=not C or H.UIElements.Icon==nil
 J.Text=C and H.UIElements.Icon==nil and H.Title:sub(1,2)or H.Title
 end
+for G,H in ipairs(m.AllElements)do if H.RefreshStyle then H:RefreshStyle()end end
 return m
 end
 function m.SetEffects(A,B)
@@ -26881,6 +26885,7 @@ f.ShadowTransparency=f.Tokens.Elevation.Shadow
 f.Transparent=j.Style=="Glass"
 i.TransparencyValue=f.Tokens.Opacity.Surface
 f.UIElements.Main.Background.ImageTransparency=i.TransparencyValue
+for p,r in ipairs(f.TabModule.Tabs)do r.UIElements.ContainerFrame.UIListLayout.Padding=UDim.new(0,f.Tokens.Spacing.Gap)end
 for p,r in ipairs(f.AllElements)do if r.RefreshStyle then r:RefreshStyle()end end
 else
 f.Tokens=nil
@@ -30700,62 +30705,73 @@ function ac.Attach(ad,ae,af)
 local ag=ad.ElementFrame
 if not ag or not ag:IsA"GuiObject"then return end
 local ah="idle"
-local ai=setmetatable({},{__mode="k"})
-local aj=aa.New("TextButton",{Name="FluentDisabled",Text="",Size=UDim2.fromScale(1,1),BackgroundTransparency=1,AutoButtonColor=false,Active=true,Selectable=false,Visible=false,ZIndex=39,Parent=ag})
-local ak=aa.New("UIStroke",{Name="FluentFocus",Thickness=1,Transparency=1,ApplyStrokeMode=Enum.ApplyStrokeMode.Border,Parent=ag,ThemeTag={Color="Primary"}})
-local al=aa.New("TextLabel",{Name="FluentStatus",BackgroundTransparency=0.1,BackgroundColor3=Color3.fromRGB(25,25,25),TextColor3=Color3.new(1,1,1),TextSize=12,Size=UDim2.new(1,0,0,24),Position=UDim2.new(0,0,1,-24),Visible=false,ZIndex=40,Parent=ag})
-function ad.SetState(am,an,ao)
-if not table.find({"idle","hover","pressed","focused","disabled","loading","invalid"},an)then return false end
-local ap=ad.Locked
-if an=="disabled"or an=="loading"then
-if ah~="disabled"and ah~="loading"then ad.PreviousLocked=ap end
+local ai=aa.New("Frame",{Name="FluentInteraction",Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Active=false,ZIndex=38,Parent=ag,ThemeTag={BackgroundColor3="Text"}})
+local aj=setmetatable({},{__mode="k"})
+local ak=aa.New("TextButton",{Name="FluentDisabled",Text="",Size=UDim2.fromScale(1,1),BackgroundTransparency=1,AutoButtonColor=false,Active=true,Selectable=false,Visible=false,ZIndex=39,Parent=ag})
+local al=aa.New("UIStroke",{Name="FluentFocus",Thickness=1,Transparency=1,ApplyStrokeMode=Enum.ApplyStrokeMode.Border,Parent=ag,ThemeTag={Color="Primary"}})
+local am=aa.New("TextLabel",{Name="FluentStatus",BackgroundTransparency=0.1,BackgroundColor3=Color3.fromRGB(25,25,25),TextColor3=Color3.new(1,1,1),TextSize=12,Size=UDim2.new(1,0,0,24),Position=UDim2.new(0,0,1,-24),Visible=false,ZIndex=40,Parent=ag})
+function ad.SetState(an,ao,ap)
+if not table.find({"idle","hover","pressed","focused","disabled","loading","invalid"},ao)then return false end
+local aq=ad.Locked
+if ao=="disabled"or ao=="loading"then
+if ah~="disabled"and ah~="loading"then ad.PreviousLocked=aq end
 if ad.Lock then ad:Lock()end
 elseif ah=="disabled"or ah=="loading"then
 if not ad.PreviousLocked and ad.Unlock then ad:Unlock()end
 end
-ah,ad.State=an,an
-local aq=an=="disabled"or an=="loading"
-aj.Visible=aq
-for ar,as in ipairs(ag:GetDescendants())do
-if as:IsA"GuiButton"and as~=aj then
-if aq then
-if ai[as]==nil then ai[as]=as.Selectable end
-as.Selectable=false
-elseif ai[as]~=nil then as.Selectable=ai[as];ai[as]=nil end
+ah,ad.State=ao,ao
+local ar=ao=="disabled"or ao=="loading"
+ak.Visible=ar
+for as,at in ipairs(ag:GetDescendants())do
+if at:IsA"GuiButton"and at~=ak then
+if ar then
+if aj[at]==nil then aj[at]=at.Selectable end
+at.Selectable=false
+elseif aj[at]~=nil then at.Selectable=aj[at];aj[at]=nil end
 end
 end
-ak.Transparency=(an=="focused"or an=="invalid")and 0 or 1
-if an=="focused"then ak.Transparency=0 end
-aa.SetThemeTag(ak,{Color=an=="invalid"and"Error"or"Primary"})
-al.Visible=an=="invalid"or an=="loading"
-al.Text=ao or(an=="loading"and"Loading…"or"Invalid value")
+al.Transparency=(ao=="focused"or ao=="invalid")and 0 or 1
+local as=ae.Window.Tokens
+if as then
+ai.BackgroundTransparency=ao=="hover"and as.InteractionState.Hover or ao=="pressed"and as.InteractionState.Pressed or ar and as.InteractionState.Disabled or 1
+if ao=="focused"then al.Transparency=as.InteractionState.Focus end
+end
+aa.SetThemeTag(al,{Color=ao=="invalid"and"Error"or"Primary"})
+am.Visible=ao=="invalid"or ao=="loading"
+am.Text=ap or(ao=="loading"and"Loading…"or"Invalid value")
 return ad
 end
-function ad.SetLoading(am,an)return ad:SetState(an and"loading"or"idle")end
-function ad.SetDisabled(am,an)return ad:SetState(an and"disabled"or"idle")end
-function ad.RefreshStyle(am)
-local an=ae.Window.Tokens
-if not an then return end
-local ao=ag:GetDescendants()
-table.insert(ao,ag)
-for ap,aq in ipairs(ao)do
-if aq:IsA"TextLabel"or aq:IsA"TextButton"or aq:IsA"TextBox"then
-if aq.TextSize>=14 and aq.TextSize<=18 then aq.TextSize=an.Typography.Body end
-aq.FontFace=Font.new(an.Typography.Font,aq.FontFace.Weight,aq.FontFace.Style)
+function ad.SetLoading(an,ao)return ad:SetState(ao and"loading"or"idle")end
+function ad.SetDisabled(an,ao)return ad:SetState(ao and"disabled"or"idle")end
+function ad.RefreshStyle(an)
+local ao=ae.Window.Tokens
+if not ao then return end
+local ap=ag:GetDescendants()
+table.insert(ap,ag)
+for aq,ar in ipairs(ap)do
+if ar:IsA"TextLabel"or ar:IsA"TextButton"or ar:IsA"TextBox"then
+local as=ar:GetAttribute"FluentTypography"
+if not as then as=ar.TextSize<=13 and"Caption"or ar.TextSize>=20 and"Title"or"Body";ar:SetAttribute("FluentTypography",as)end
+ar.TextSize=ao.Typography[as]
+ar.FontFace=Font.new(ao.Typography.Font,ar.FontFace.Weight,ar.FontFace.Style)
 end
-if aq:IsA"UICorner"and aq.CornerRadius.Offset>0 and aq.CornerRadius.Offset<24 then aq.CornerRadius=UDim.new(0,an.Radius.Control)end
-if aq:IsA"GuiButton"and aq~=aj then aq.Selectable=ah~="disabled"and ah~="loading"end
+if ar:IsA"UICorner"and ar.CornerRadius.Offset>0 and ar.CornerRadius.Offset<24 then ar.CornerRadius=UDim.new(0,ao.Radius.Control)end
+if ar:IsA"GuiButton"and ar~=ak then ar.Selectable=ah~="disabled"and ah~="loading"end
 end
-local ap=ag:FindFirstChild"FluentMinimum"
-if not ap then ap=aa.New("UISizeConstraint",{Name="FluentMinimum",Parent=ag})end
-ap.MinSize=Vector2.new(0,game:GetService"UserInputService".TouchEnabled and an.Density.Touch or an.Density.Comfortable)
+local aq=ag:FindFirstChildOfClass"UIPadding"
+if aq then
+for ar,as in ipairs{"PaddingTop","PaddingBottom","PaddingLeft","PaddingRight"}do aq[as]=UDim.new(0,ao.Spacing.Control)end
+end
+local ar=ag:FindFirstChild"FluentMinimum"
+if not ar then ar=aa.New("UISizeConstraint",{Name="FluentMinimum",Parent=ag})end
+ar.MinSize=Vector2.new(0,game:GetService"UserInputService".TouchEnabled and ao.Density.Touch or ae.Window.Compact and ao.Density.Compact or ao.Density.Comfortable)
 end
 af:Connect(ag.SelectionGained,function()if not ad.Locked then ad:SetState"focused"end end)
 af:Connect(ag.SelectionLost,function()if ah=="focused"then ad:SetState"idle"end end)
 af:Connect(ag.MouseEnter,function()if ah=="idle"then ad:SetState"hover"end end)
 af:Connect(ag.MouseLeave,function()if ah=="hover"or ah=="pressed"then ad:SetState"idle"end end)
-af:Connect(ag.InputBegan,function(am)
-if not ad.Locked and ah~="disabled"and ah~="loading"and(am.UserInputType==Enum.UserInputType.MouseButton1 or am.UserInputType==Enum.UserInputType.Touch)then ad:SetState"pressed"end
+af:Connect(ag.InputBegan,function(an)
+if not ad.Locked and ah~="disabled"and ah~="loading"and(an.UserInputType==Enum.UserInputType.MouseButton1 or an.UserInputType==Enum.UserInputType.Touch)then ad:SetState"pressed"end
 end)
 af:Connect(ag.InputEnded,function()if ah=="pressed"then ad:SetState"idle"end end)
 ad:RefreshStyle()
@@ -33364,7 +33380,7 @@ local as
 function ar._RefreshMotion(at)
 if not ar.Indeterminate then return end
 if as then as:Cancel()end
-if aj.WindUI.Performance and(aj.WindUI.Performance.Quality=="Off"or aj.WindUI.Performance.ReducedMotion)then
+if aj.WindUI.Performance and(aj.WindUI.Performance.Quality=="Off"or aj.WindUI.Performance.ReducedMotion)or aj.Window.Tokens and aj.Window.Tokens.Motion.Normal==0 then
 ar.UIElements.Fill.Position=UDim2.fromScale(0.35,0)
 return
 end
@@ -37440,7 +37456,7 @@ PaddingBottom=UDim.new(0,not ar.HidePanelBackground and 20 or 10),
 }),
 ao("UIListLayout",{
 SortOrder="LayoutOrder",
-Padding=UDim.new(0,ax.Gap),
+Padding=UDim.new(0,ar.Tokens and ar.Tokens.Spacing.Gap or ax.Gap),
 HorizontalAlignment="Center",
 }),
 })

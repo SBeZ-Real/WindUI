@@ -24,6 +24,7 @@ function ThemeEngine.Attach(Window, Config, WindUI)
             Window.Transparent = state.Style == "Glass"
             context.TransparencyValue = Window.Tokens.Opacity.Surface
             Window.UIElements.Main.Background.ImageTransparency = context.TransparencyValue
+            for _, tab in ipairs(Window.TabModule.Tabs) do tab.UIElements.ContainerFrame.UIListLayout.Padding = UDim.new(0, Window.Tokens.Spacing.Gap) end
             for _, element in ipairs(Window.AllElements) do if element.RefreshStyle then element:RefreshStyle() end end
         else
             Window.Tokens = nil

@@ -270,7 +270,7 @@ function TabModule.New(Config, UIScale)
 		}),
 		New("UIListLayout", {
 			SortOrder = "LayoutOrder",
-			Padding = UDim.new(0, Tab.Gap),
+			Padding = UDim.new(0, Window.Tokens and Window.Tokens.Spacing.Gap or Tab.Gap),
 			HorizontalAlignment = "Center",
 		}),
 	})

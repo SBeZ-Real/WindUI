@@ -622,6 +622,8 @@ function Creator.Tween(Object, Time, Properties, ...)
 	local scope = Scope.Owners[Object] or Scope.Get() or Creator.RootScope
     local performance = scope.Context and scope.Context.Performance
     local options = table.pack(...)
+    local tokens = scope.Context and scope.Context.Window and scope.Context.Window.Tokens
+    if tokens then Time *= Time <= 0.12 and tokens.Motion.Fast / 0.1 or tokens.Motion.Normal / 0.18 end
     if performance and (performance.ReducedMotion or performance.Quality == "Off") then
         Time = 0
         options[3], options[4], options[5], options.n = 0, false, 0, 5
@@ -629,6 +631,7 @@ function Creator.Tween(Object, Time, Properties, ...)
     elseif performance and performance.Quality == "Low" then
         Time = math.min(Time, 0.08)
     end
+    if Time == 0 then options[3], options[4], options[5], options.n = 0, false, 0, 5 end
     local active = Creator.ActiveTweens[Object] or {}
     Creator.ActiveTweens[Object] = active
     for tween, properties in pairs(active) do

@@ -150,6 +150,7 @@ function WindowManager.new(WindUI, parent)
                 text.Visible = not compact or tab.UIElements.Icon == nil
                 text.Text = compact and tab.UIElements.Icon == nil and tab.Title:sub(1, 2) or tab.Title
             end
+            for _, element in ipairs(Window.AllElements) do if element.RefreshStyle then element:RefreshStyle() end end
             return Window
         end
         function Window:SetEffects(quality)
