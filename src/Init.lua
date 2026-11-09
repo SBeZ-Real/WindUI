@@ -1,3 +1,7 @@
+local Capabilities = require("./runtime/Capabilities")
+local WindowManager = require("./runtime/WindowManager")
+local ThemeEngine = require("./runtime/ThemeEngine")
+
 local WindUI = {
 	Window = nil,
 	Theme = nil,
@@ -44,12 +48,12 @@ end
 
 local CurInput = WindUI.GenerateGUID()
 
-UserInputService.InputBegan:Connect(function(Input, GameProcessed)
+WindUI.Creator.AddSignal(UserInputService.InputBegan, function(Input, GameProcessed)
 	--[[if GameProcessed then
 		return
 	end]]
 
-	task.defer(function()
+	WindUI.Creator.Tasks.defer(function()
 		if
 			Input.UserInputType == Enum.UserInputType.MouseButton1
 			or Input.UserInputType == Enum.UserInputType.Touch
@@ -64,7 +68,7 @@ UserInputService.InputBegan:Connect(function(Input, GameProcessed)
 		end
 	end)
 end)
-UserInputService.InputEnded:Connect(function(Input, GameProcessed)
+WindUI.Creator.AddSignal(UserInputService.InputEnded, function(Input, GameProcessed)
 	if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
 		if WindUI.CurrentInput and WindUI.CurrentInput ~= CurInput then
 			return
@@ -84,6 +88,7 @@ end
 local KeySystem = require("./components/KeySystem")
 
 local Creator = WindUI.Creator
+local task = Creator.Tasks
 
 local New = Creator.New
 
@@ -92,9 +97,9 @@ local New = Creator.New
 
 local Acrylic = require("./utils/Acrylic/Init")
 
-local ProtectGui = protectgui or (syn and syn.protect_gui) or function() end
+local ProtectGui = Capabilities.Protect
 
-local GUIParent = gethui and gethui() or (CoreGui or LocalPlayer:WaitForChild("PlayerGui"))
+local GUIParent = Capabilities.Parent()
 
 local UIScaleObj = New("UIScale", {
 	Scale = WindUI.UIScale,
@@ -151,8 +156,15 @@ ProtectGui(WindUI.DropdownGui)
 ProtectGui(WindUI.TooltipGui)
 
 Creator.Init(WindUI)
+WindUI.Capabilities = Capabilities.Detect()
+WindUI.WindowManager = WindowManager.new(WindUI, GUIParent)
+WindUI.Windows = WindUI.WindowManager.Windows
 
 function WindUI:SetParent(parent)
+    WindUI.WindowManager.Parent = parent
+    for _, window in pairs(WindUI.Windows) do
+        for _, key in ipairs({"ScreenGui", "DropdownGui", "TooltipGui"}) do window.Context[key].Parent = parent end
+    end
 	if WindUI.ScreenGui then
 		WindUI.ScreenGui.Parent = parent
 	end
@@ -172,7 +184,7 @@ local Holder = WindUI.NotificationModule.Init(WindUI.NotificationGui)
 
 function WindUI:Notify(Config)
 	Config.Holder = Holder.Frame
-	Config.Window = WindUI.Window
+	Config.Window = Config.Window or WindUI.Window
 	--Config.WindUI = WindUI
 	return WindUI.NotificationModule.New(Config)
 end
@@ -198,6 +210,7 @@ function WindUI:SetTheme(Value)
 	if WindUI.Themes[Value] then
 		WindUI.Theme = WindUI.Themes[Value]
 		Creator.SetTheme(WindUI.Themes[Value])
+        for _, window in pairs(WindUI.Windows) do if window._GlobalTheme then window._GlobalTheme() end end
 
 		if WindUI.OnThemeChangeFunction then
 			WindUI.OnThemeChangeFunction(Value)
@@ -236,9 +249,9 @@ function WindUI:ToggleAcrylic(Value)
 		WindUI.Window.Acrylic = Value
 		WindUI.Window.AcrylicPaint.Model.Transparency = Value and 0.98 or 1
 		if Value then
-			Acrylic.Enable()
+			Acrylic.Enable(WindUI.Window.ID)
 		else
-			Acrylic.Disable()
+			Acrylic.Disable(WindUI.Window.ID)
 		end
 	end
 end
@@ -291,8 +304,12 @@ function WindUI:Gradient(stops, props)
 end
 
 function WindUI:Popup(PopupConfig)
+    PopupConfig = table.clone(PopupConfig)
 	PopupConfig.WindUI = WindUI
-	return require("./components/popup/Init").new(PopupConfig, WindUI.ScreenGui.Popups)
+    local scope = Creator.Scope.new(Creator.RootScope)
+    local success, popup = pcall(function() return scope:Run(require("./components/popup/Init").new, PopupConfig, WindUI.ScreenGui.Popups) end)
+    if not success then scope:Destroy(); error(popup, 0) end
+    return scope:Bind(popup)
 end
 
 WindUI.Themes = require("./themes/Init")(WindUI, Creator)
@@ -305,32 +322,30 @@ WindUI:SetLanguage(Creator.Language)
 function WindUI:CreateWindow(Config)
 	local CreateWindow = require("./components/window/Init")
 
-	if not RunService:IsStudio() and writefile then
-		if not isfolder("WindUI") then
-			makefolder("WindUI")
-		end
-		if Config.Folder then
-			makefolder(Config.Folder)
-		else
-			makefolder(Config.Title)
-		end
-	end
-
-	Config.WindUI = WindUI
-	Config.Window = WindUI.Window
-	Config.Parent = WindUI.ScreenGui.Window
-
-	if WindUI.Window then
-		warn("You cannot create more than one window")
-		return
-	end
+    Config = table.clone(Config or {})
+    if Config.Folder then assert(Capabilities.ValidPath(Config.Folder), "Invalid window folder") end
+    if Config.Style then
+        local tokens = require("./runtime/Tokens").Resolve(Config.Style, Config.Mode or "Dark", Config.Accent, Config.Tokens)
+        Config.Radius = Config.Radius or tokens.Radius.Window
+        Config.ElementsRadius = Config.ElementsRadius or tokens.Radius.Control
+        Config.ShadowTransparency = Config.ShadowTransparency or tokens.Elevation.Shadow
+        if Config.Layout == nil then Config.Layout = "Adaptive" end
+    end
+    local context = WindUI.WindowManager:Context(Config)
+    Config.WindUI = context
+    Config.Window = WindUI.Window
+    Config.Parent = context.ScreenGui.Window
+    if WindUI.Capabilities.File then
+        Capabilities.MakeFolder("WindUI")
+        Capabilities.MakeFolder(Config.Folder or Config.Title or "Temp")
+    end
 
 	local CanLoadWindow = true
 
 	local Theme = WindUI.Themes[Config.Theme or "Dark"]
 
 	--WindUI.Theme = Theme
-	Creator.SetTheme(Theme)
+	context.Theme = Theme or WindUI.Theme
 
 	local hwid = gethwid or function()
 		return Players.LocalPlayer.UserId
@@ -341,16 +356,18 @@ function WindUI:CreateWindow(Config)
 	if Config.KeySystem then
 		CanLoadWindow = false
 
-		local function loadKeysystem()
-			KeySystem.new(Config, Filename, function(c)
+		local keyScope = Creator.Scope.new(context.Scope)
+        local function loadKeysystem()
+            local success, message = pcall(function() keyScope:Run(KeySystem.new, Config, Filename, function(c)
 				CanLoadWindow = c
-			end)
+			end) end)
+            if not success then context.Scope:Destroy(); error(message, 0) end
 		end
 
 		local keyPath = (Config.Folder or "Temp") .. "/" .. Filename .. ".key"
 
 		if Config.KeySystem.KeyValidator then
-			if Config.KeySystem.SaveKey and isfile(keyPath) then
+			if Config.KeySystem.SaveKey and (type(isfile) == "function" and type(readfile) == "function" and isfile(keyPath)) then
 				local savedKey = readfile(keyPath)
 				local isValid = Config.KeySystem.KeyValidator(savedKey)
 
@@ -363,7 +380,7 @@ function WindUI:CreateWindow(Config)
 				loadKeysystem()
 			end
 		elseif not Config.KeySystem.API then
-			if Config.KeySystem.SaveKey and isfile(keyPath) then
+			if Config.KeySystem.SaveKey and (type(isfile) == "function" and type(readfile) == "function" and isfile(keyPath)) then
 				local savedKey = readfile(keyPath)
 				local isKey = (type(Config.KeySystem.Key) == "table") and table.find(Config.KeySystem.Key, savedKey)
 					or tostring(Config.KeySystem.Key) == tostring(savedKey)
@@ -377,7 +394,7 @@ function WindUI:CreateWindow(Config)
 				loadKeysystem()
 			end
 		else
-			if isfile(keyPath) then
+			if (type(isfile) == "function" and type(readfile) == "function" and isfile(keyPath)) then
 				local fileKey = readfile(keyPath)
 				local isSuccess = false
 
@@ -409,17 +426,31 @@ function WindUI:CreateWindow(Config)
 
 		repeat
 			task.wait()
-		until CanLoadWindow
+		until CanLoadWindow or context.Cancelled or context.Scope.Destroyed
+        keyScope:Destroy()
+        if context.Cancelled or context.Scope.Destroyed then context.Scope:Destroy(); return nil, "Window creation cancelled" end
 	end
 
-	local Window = CreateWindow(Config)
+	local started = os.clock()
+    if Config.Acrylic then Acrylic.init() end
+    local success, Window = pcall(function() return context.Scope:Run(function()
+        local Window = CreateWindow(Config)
+        WindUI.WindowManager:Attach(Window, Config)
+        ThemeEngine.Attach(Window, Config, WindUI)
+        require("./runtime/NavigationView").Attach(Window, Config)
+        return Window
+    end) end)
+    if not success then
+        local failed = WindUI.Windows[context.ID]
+        if failed then WindUI.WindowManager:Remove(failed) end
+        context.Scope:Destroy(); error(Window, 0)
+    end
+    context.Performance:Record("CreateWindow", os.clock() - started)
+    context.Scope:Bind(Window)
 
 	WindUI.Transparent = Config.Transparent
 	WindUI.Window = Window
 
-	if Config.Acrylic then
-		Acrylic.init()
-	end
 
 	-- function Window:ToggleTransparency(Value)
 	--     WindUI.Transparent = Value
@@ -434,6 +465,16 @@ function WindUI:CreateWindow(Config)
 	-- end
 
 	return Window
+end
+
+function WindUI:RegisterComponent(name, factory) return require("./elements/Init").Register(name, factory) end
+
+function WindUI:GetWindow(id) return WindUI.Windows[id] end
+function WindUI:GetWindows() return table.clone(WindUI.Windows) end
+function WindUI:Destroy()
+    local windows = WindUI:GetWindows()
+    for _, window in pairs(windows) do window:Destroy() end
+    Creator.RootScope:Destroy()
 end
 
 return WindUI

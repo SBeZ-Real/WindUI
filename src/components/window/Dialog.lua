@@ -1,4 +1,5 @@
 local Creator = require("../../modules/Creator")
+local task = Creator.Tasks
 local New = Creator.New
 local Tween = Creator.Tween
 
@@ -125,53 +126,57 @@ function DialogModule.Create(Key, Type, Window, WindUI, Parent)
 		-- })
 	})
 
-	function Dialog:Open()
-		if not Key then
-			Dialog.UIElements.FullScreen.Visible = true
-			Dialog.UIElements.FullScreen.Active = true
-		end
-
-		task.spawn(function()
-			Dialog.UIElements.MainContainer.Visible = true
-
-			if not Key then
-				Tween(Dialog.UIElements.FullScreen, 0.1, { BackgroundTransparency = 0.65 }):Play()
-			end
-			Tween(Dialog.UIElements.MainContainer, 0.1, { ImageTransparency = 0 }):Play()
-			--Tween(Dialog.UIElements.MainContainer.UIScale, 0.1, {Scale = 1}):Play()
-			--Tween(Dialog.UIElements.MainContainer.UIStroke, 0.1, {Transparency = 1}):Play()
-			task.spawn(function()
-				task.wait(0.05)
-				Dialog.UIElements.Main.Visible = true
-			end)
-		end)
-	end
-	function Dialog:Close()
-		if not Key then
-			Tween(Dialog.UIElements.FullScreen, 0.1, { BackgroundTransparency = 1 }):Play()
-			Dialog.UIElements.FullScreen.Active = false
-			task.spawn(function()
-				task.wait(0.1)
-				Dialog.UIElements.FullScreen.Visible = false
-			end)
-		end
-		Dialog.UIElements.Main.Visible = false
-
-		Tween(Dialog.UIElements.MainContainer, 0.1, { ImageTransparency = 1 }):Play()
-		--Tween(Dialog.UIElements.MainContainer.UIScale, 0.1, {Scale = .9}):Play()
-		--Tween(Dialog.UIElements.MainContainer.UIStroke, 0.1, {Transparency = 1}):Play()
-
-		task.spawn(function()
-			task.wait(0.1)
-			if not Key then
-				Dialog.UIElements.FullScreen:Destroy()
-			else
-				Dialog.UIElements.MainContainer:Destroy()
-			end
-		end)
-
-		return function() end
-	end
+    local GuiService = game:GetService("GuiService")
+    local previous
+    function Dialog:Open()
+        if Dialog.Closed then return end
+        if not Key and Window then
+            Window:Focus()
+            if Window.Popup and Window.Popup ~= Dialog then Window.Popup:Close("replaced") end
+            Window.Popup = Dialog
+            previous = GuiService.SelectedObject
+            Dialog.UIElements.FullScreen.Visible = true
+            Dialog.UIElements.FullScreen.Active = true
+            Dialog.UIElements.FullScreen.BackgroundTransparency = 0.45
+        end
+        Dialog.UIElements.MainContainer.Visible = true
+        Dialog.UIElements.Main.Visible = true
+        Dialog.UIElements.MainContainer.ImageTransparency = 0
+        local viewport = WindUI.ScreenGui.AbsoluteSize
+        local scale = WindUI.UIScale or 1
+        local available = math.max(120, viewport.X / scale - 48)
+        local width = Dialog.UIElements.Main.Size.X.Scale * available + Dialog.UIElements.Main.Size.X.Offset
+        Dialog.UIElements.Main.Size = UDim2.new(0, math.min(math.max(120, width), available), 0, Dialog.UIElements.Main.Size.Y.Offset)
+        for _, object in ipairs(Dialog.UIElements.Main:GetDescendants()) do
+            if object:IsA("GuiButton") then GuiService.SelectedObject = object; break end
+        end
+    end
+    function Dialog:Close(result)
+        if Dialog.Closed then return function() end end
+        Dialog.Closed = true
+        Dialog.Result = result or Dialog.Result or "cancelled"
+        if Window and Window.Popup == Dialog then Window.Popup = nil end
+        if previous and previous.Parent then GuiService.SelectedObject = previous else GuiService.SelectedObject = nil end
+        Creator.SafeCallback(Dialog.OnResult, Dialog.Result)
+        if Dialog.Scope then
+            Dialog.Scope:Destroy()
+        else
+            if Dialog.UIElements.FullScreen then Dialog.UIElements.FullScreen:Destroy() end
+            Dialog.UIElements.MainContainer:Destroy()
+        end
+        return function() end
+    end
+    if not Key then
+        Creator.AddSignal(game:GetService("UserInputService").InputBegan, function(input, processed)
+            if Window.Popup ~= Dialog or WindUI.WindowManager.Focused ~= Window then return end
+            if input.KeyCode == Enum.KeyCode.Escape or input.KeyCode == Enum.KeyCode.ButtonB then Dialog:Close("cancelled") end
+            if not processed and input.KeyCode == Enum.KeyCode.Tab then
+                local controls = {}
+                for _, object in ipairs(Dialog.UIElements.Main:GetDescendants()) do if object:IsA("GuiButton") and object.Visible and object.Selectable then table.insert(controls, object) end end
+                if #controls > 0 then GuiService.SelectedObject = controls[((table.find(controls, GuiService.SelectedObject) or 0) % #controls) + 1] end
+            end
+        end)
+    end
 
 	--Dialog:Open()
 	return Dialog

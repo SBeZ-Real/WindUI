@@ -1,6 +1,7 @@
 -- Credits: Fluent - Dawid
 
 local Creator = require("../../modules/Creator")
+local task = Creator.Tasks
 local AcrylicBlur = require("./Blur")
 
 local New = Creator.New

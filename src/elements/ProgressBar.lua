@@ -173,8 +173,16 @@ function Element:New(Config)
 		ProgressBar.UIElements.Value,
 	})
 
-	if ProgressBar.Indeterminate then
-		local IndeterminateTween = Tween(
+    local IndeterminateTween
+    function ProgressBar:_RefreshMotion()
+        if not ProgressBar.Indeterminate then return end
+        if IndeterminateTween then IndeterminateTween:Cancel() end
+        if Config.WindUI.Performance and (Config.WindUI.Performance.Quality == "Off" or Config.WindUI.Performance.ReducedMotion) or Config.Window.Tokens and Config.Window.Tokens.Motion.Normal == 0 then
+            ProgressBar.UIElements.Fill.Position = UDim2.fromScale(0.35, 0)
+            return
+        end
+        ProgressBar.UIElements.Fill.Position = UDim2.fromScale(-0.3, 0)
+		IndeterminateTween = Tween(
 			ProgressBar.UIElements.Fill,
 			1 / ProgressBar.Speed,
 			{ Position = UDim2.new(1, 0, 0, 0) },
@@ -182,11 +190,10 @@ function Element:New(Config)
 			Enum.EasingDirection.InOut,
 			-1
 		)
-		Creator.AddSignal(ProgressBar.UIElements.Bar.Destroying, function()
-			IndeterminateTween:Cancel()
-		end)
 		IndeterminateTween:Play()
 	end
+    Creator.AddSignal(ProgressBar.UIElements.Bar.Destroying, function() if IndeterminateTween then IndeterminateTween:Cancel() end end)
+    ProgressBar:_RefreshMotion()
 
 	local function Update(Value, Instant)
 		local NumericValue = ToFiniteNumber(Value)

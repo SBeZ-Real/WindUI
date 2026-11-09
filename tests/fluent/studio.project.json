@@ -1,0 +1,16 @@
+{
+  "name": "WindUIFluentGallery",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "WindUI": { "$path": "../../dist/main.lua" },
+      "WindUIGallery": { "$path": "Gallery.lua" },
+      "WindUIBenchmark": { "$path": "NativeBenchmark.lua" }
+    },
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "FluentGallery": { "$path": "Studio.client.lua" }
+      }
+    }
+  }
+}

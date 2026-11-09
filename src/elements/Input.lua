@@ -83,7 +83,17 @@ function Element:New(Config)
 
 	function Input:Set(v, IsUserInput)
 		if CanCallback then
-			Input.Value = v
+            if Config.Validator then
+                local success, valid, message = pcall(Config.Validator, v)
+                if not success or valid == false then
+                    Input.Invalid = true
+                    if Input.SetState then Input:SetState("invalid", success and message or tostring(valid)) end
+                    return false, success and message or tostring(valid)
+                end
+                Input.Invalid = false
+                if Input.SetState then Input:SetState("idle") end
+            end
+            Input.Value = v
 			Creator.SafeCallback(Input.Callback, v)
 
 			if not IsUserInput then

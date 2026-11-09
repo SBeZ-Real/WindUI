@@ -1,4 +1,5 @@
 local Creator = require("../modules/Creator")
+local task = Creator.Tasks
 local New = Creator.New
 local Tween = Creator.Tween
 
@@ -215,7 +216,7 @@ function Element:New(Config)
 
 	Section.ElementFrame = Main
 
-	Main.Outline.Top:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+	Creator.AddSignal(Main.Outline.Top:GetPropertyChangedSignal("AbsoluteSize"), function()
 		Main.Outline.Content.Position = UDim2.new(0, 0, 0, (Main.Outline.Top.AbsoluteSize.Y / Config.UIScale) + 10)
 
 		if Section.Opened then
@@ -331,7 +332,7 @@ function Element:New(Config)
 		end
 	end
 
-	Creator.AddSignal(Main.Outline.Top.MouseButton1Click, function()
+	Creator.AddSignal(Main.Outline.Top.Activated, function()
 		if Section.Expandable then
 			if Section.Opened then
 				Section:Close()

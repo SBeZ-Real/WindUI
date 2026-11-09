@@ -11,9 +11,8 @@ local Tween = Creator.Tween
 
 local Element = {}
 
-local IsSliderHolding = false
-
 function Element:New(Config)
+    local IsSliderHolding = false
 	local Slider = {
 		__type = "Slider",
 		Title = Config.Title or nil,
@@ -267,7 +266,7 @@ function Element:New(Config)
 						Creator.SafeCallback(Slider.Callback, FormatValue(Value))
 					end
 
-					moveconnection = RunService.RenderStepped:Connect(function()
+					moveconnection = Creator.AddSignal(RunService.RenderStepped, function()
 						local inputPosition = isTouch and input.Position.X or UserInputService:GetMouseLocation().X
 						local delta = math.clamp(
 							(inputPosition - Slider.UIElements.SliderIcon.AbsolutePosition.X)
@@ -290,7 +289,7 @@ function Element:New(Config)
 					end)
 
 					-- release slider
-					releaseconnection = UserInputService.InputEnded:Connect(function(endInput)
+					releaseconnection = Creator.AddSignal(UserInputService.InputEnded, function(endInput)
 						if
 							(
 								endInput.UserInputType == Enum.UserInputType.MouseButton1

@@ -1,6 +1,7 @@
 local Toggle = {}
 
 local Creator = require("../../modules/Creator")
+local task = Creator.Tasks
 local New = Creator.New
 local Tween = Creator.Tween
 
@@ -307,7 +308,7 @@ function Toggle.New(Value, Icon, IconSize, Parent, Callback, NewElement, Config)
 				dragConnection:Disconnect()
 			end
 
-			dragConnection = UserInputService.InputChanged:Connect(function(inputChanged)
+			dragConnection = Creator.AddSignal(UserInputService.InputChanged, function(inputChanged)
 				if not Config.Window.IsToggleDragging then
 					return
 				end
@@ -347,7 +348,7 @@ function Toggle.New(Value, Icon, IconSize, Parent, Callback, NewElement, Config)
 				endConnection:Disconnect()
 			end
 
-			endConnection = UserInputService.InputEnded:Connect(function(inputEnded)
+			endConnection = Creator.AddSignal(UserInputService.InputEnded, function(inputEnded)
 				if not Config.Window.IsToggleDragging then
 					return
 				end

@@ -8,12 +8,13 @@ local UserInputService = cloneref(game:GetService("UserInputService"))
 local Mouse = Players.LocalPlayer:GetMouse()
 
 local Creator = require("../../modules/Creator")
+local task = Creator.Tasks
 local New = Creator.New
 
 local CreateToolTip = require("../ui/Tooltip").New
 local CreateScrollSlider = require("../ui/ScrollSlider").New
 
-local Window, WindUI, UIScale
+local function CreateModule(Window, WindUI, UIScale)
 
 local TabModule = {
 	--Window = nil,
@@ -29,11 +30,10 @@ local TabModule = {
 }
 
 function TabModule.Init(WindowTable, WindUITable, ToolTipParent, TabHighlight)
-	Window = WindowTable
-	WindUI = WindUITable
-	TabModule.ToolTipParent = ToolTipParent
-	TabModule.TabHighlight = TabHighlight
-	return TabModule
+    local TabModule = CreateModule(WindowTable, WindUITable)
+    TabModule.ToolTipParent = ToolTipParent
+    TabModule.TabHighlight = TabHighlight
+    return TabModule
 end
 
 function TabModule.New(Config, UIScale)
@@ -270,7 +270,7 @@ function TabModule.New(Config, UIScale)
 		}),
 		New("UIListLayout", {
 			SortOrder = "LayoutOrder",
-			Padding = UDim.new(0, Tab.Gap),
+			Padding = UDim.new(0, Window.Tokens and Window.Tokens.Spacing.Gap or Tab.Gap),
 			HorizontalAlignment = "Center",
 		}),
 	})
@@ -347,7 +347,7 @@ function TabModule.New(Config, UIScale)
 
 	Tab.ContainerFrame = Tab.UIElements.ContainerFrameCanvas
 
-	Creator.AddSignal(Tab.UIElements.Main.MouseButton1Click, function()
+	Creator.AddSignal(Tab.UIElements.Main.Activated, function()
 		if not Tab.Locked then
 			TabModule:SelectTab(TabIndex)
 		end
@@ -368,29 +368,33 @@ function TabModule.New(Config, UIScale)
 	local MouseConn
 	local IsHovering = false
 
-	-- ToolTip
-	if Tab.Desc then
-		Creator.AddSignal(Tab.UIElements.Main.InputBegan, function()
-			IsHovering = true
-			hoverTimer = task.spawn(function()
-				task.wait(0.35)
-				if IsHovering and not ToolTip then
-					ToolTip = CreateToolTip(Tab.Desc, TabModule.ToolTipParent, true)
-					ToolTip.Container.AnchorPoint = Vector2.new(0.5, 0.5)
-
-					local function updatePosition()
-						if ToolTip then
-							ToolTip.Container.Position = UDim2.new(0, Mouse.X, 0, Mouse.Y - 4)
-						end
-					end
-
-					updatePosition()
-					MouseConn = Mouse.Move:Connect(updatePosition)
-					ToolTip:Open()
-				end
-			end)
-		end)
-	end
+	local function showTooltip()
+        if not Tab.Desc and not Window.Compact then return end
+        IsHovering = true
+        if hoverTimer then task.cancel(hoverTimer) end
+        hoverTimer = task.delay(0.35, function()
+            if not IsHovering or ToolTip then return end
+            ToolTip = CreateToolTip(Window.Compact and Tab.Title or Tab.Desc, TabModule.ToolTipParent, false)
+            ToolTip.Container.AnchorPoint = Vector2.new(0, 0.5)
+            local function updatePosition()
+                local position, size, origin = Tab.UIElements.Main.AbsolutePosition, Tab.UIElements.Main.AbsoluteSize, TabModule.ToolTipParent.AbsolutePosition
+                ToolTip.Container.Position = UDim2.fromOffset(position.X - origin.X + size.X + 8, position.Y - origin.Y + size.Y / 2)
+            end
+            updatePosition()
+            ToolTip:Open()
+        end)
+    end
+    local function hideTooltip()
+        IsHovering = false
+        if hoverTimer then task.cancel(hoverTimer); hoverTimer = nil end
+        if MouseConn then Creator.RemoveSignal(MouseConn); MouseConn = nil end
+        if ToolTip then ToolTip:Close(); ToolTip = nil end
+    end
+    Creator.AddSignal(Tab.UIElements.Main.MouseEnter, showTooltip)
+    Creator.AddSignal(Tab.UIElements.Main.MouseLeave, hideTooltip)
+    Creator.AddSignal(Tab.UIElements.Main.SelectionGained, showTooltip)
+    Creator.AddSignal(Tab.UIElements.Main.SelectionLost, hideTooltip)
+    Creator.AddSignal(Tab.UIElements.Main.InputBegan, function(input) if input.UserInputType == Enum.UserInputType.Touch then showTooltip() end end)
 
 	Creator.AddSignal(Tab.UIElements.Main.MouseEnter, function()
 		if not Tab.Locked then
@@ -401,21 +405,7 @@ function TabModule.New(Config, UIScale)
 		end
 	end)
 	Creator.AddSignal(Tab.UIElements.Main.InputEnded, function()
-		if Tab.Desc then
-			IsHovering = false
-			if hoverTimer then
-				task.cancel(hoverTimer)
-				hoverTimer = nil
-			end
-			if MouseConn then
-				MouseConn:Disconnect()
-				MouseConn = nil
-			end
-			if ToolTip then
-				ToolTip:Close()
-				ToolTip = nil
-			end
-		end
+        hideTooltip()
 
 		if not Tab.Locked then
 			Creator.SetThemeTag(Tab.UIElements.Main.Frame, {
@@ -574,6 +564,11 @@ function TabModule.New(Config, UIScale)
 		end)
 	end)
 
+    if Window.Navigation then Window.Navigation:Register(Tab, { Object = Tab, Route = Tab.Index, Kind = "Tab" }) end
+    function Tab:SetTitle(title)
+        Tab.Title = tostring(title)
+        Tab.UIElements.Main.Frame.TextLabel.Text = Tab.Title
+    end
 	return Tab
 end
 
@@ -582,7 +577,7 @@ function TabModule:OnChange(func)
 end
 
 function TabModule:SelectTab(TabIndex)
-	if not TabModule.Tabs[TabIndex].Locked then
+	if TabModule.Tabs[TabIndex] and not TabModule.Tabs[TabIndex].Locked then
 		TabModule.SelectedTab = TabIndex
 
 		for _, TabObject in next, TabModule.Tabs do
@@ -625,23 +620,16 @@ function TabModule:SelectTab(TabIndex)
 		end
 		TabModule.Tabs[TabIndex].Selected = true
 
-		task.spawn(function()
-			for _, ContainerObject in next, TabModule.Containers do
-				ContainerObject.AnchorPoint = Vector2.new(0, 0.05)
-				ContainerObject.Visible = false
-			end
-			TabModule.Containers[TabIndex].Visible = true
-			local TweenService = game:GetService("TweenService")
+        for _, ContainerObject in next, TabModule.Containers do ContainerObject.Visible = false end
+        TabModule.Containers[TabIndex].Visible = true
+        TabModule.Containers[TabIndex].AnchorPoint = Vector2.new(0, 0.02)
+        Creator.Tween(TabModule.Containers[TabIndex], 0.15, { AnchorPoint = Vector2.new(0, 0) }):Play()
 
-			local tweenInfo = TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-			local tween = TweenService:Create(TabModule.Containers[TabIndex], tweenInfo, {
-				AnchorPoint = Vector2.new(0, 0),
-			})
-			tween:Play()
-		end)
-
-		TabModule.OnChangeFunc(TabIndex)
+		Creator.SafeCallback(TabModule.OnChangeFunc, TabIndex)
 	end
 end
 
 return TabModule
+end
+
+return CreateModule()

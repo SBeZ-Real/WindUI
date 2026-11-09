@@ -4,11 +4,11 @@ local cloneref = (cloneref or clonereference or function(instance) return instan
 
 
 local Creator = require("../../modules/Creator")
+local task = Creator.Tasks
 local New = Creator.New
 
 
 local viewportPointToWorld, getOffset = unpack(require("./Utils"))
-local BlurFolder = Instance.new("Folder", cloneref(game:GetService("Workspace")).CurrentCamera)
 
 
 local function createAcrylic()
@@ -35,6 +35,7 @@ end
 
 local function createAcrylicBlur(distance)
 	local cleanups = {}
+    local BlurFolder = New("Folder", { Name = "WindUIAcrylic", Parent = cloneref(game:GetService("Workspace")).CurrentCamera })
 
 	distance = distance or 0.001
 	local positions = {
@@ -93,13 +94,13 @@ local function createAcrylicBlur(distance)
 			return
 		end
 
-		table.insert(cleanups, camera:GetPropertyChangedSignal("CFrame"):Connect(render))
-		table.insert(cleanups, camera:GetPropertyChangedSignal("ViewportSize"):Connect(render))
-		table.insert(cleanups, camera:GetPropertyChangedSignal("FieldOfView"):Connect(render))
+		table.insert(cleanups, Creator.AddSignal(camera:GetPropertyChangedSignal("CFrame"), render))
+		table.insert(cleanups, Creator.AddSignal(camera:GetPropertyChangedSignal("ViewportSize"), render))
+		table.insert(cleanups, Creator.AddSignal(camera:GetPropertyChangedSignal("FieldOfView"), render))
 		task.spawn(render)
 	end
 
-	model.Destroying:Connect(function()
+	Creator.AddSignal(model.Destroying, function()
 		for _, item in cleanups do
 			pcall(function()
 				item:Disconnect()

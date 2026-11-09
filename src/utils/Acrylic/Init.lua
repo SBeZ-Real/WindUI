@@ -1,56 +1,33 @@
 -- Credits: Fluent - Dawid
 
-local cloneref = (cloneref or clonereference or function(instance) return instance end)
-
-
 local Acrylic = {
-	AcrylicBlur = require("./Blur"),
-	--CreateAcrylic = require("./"),
-	AcrylicPaint = require("./Paint"),
+    AcrylicBlur = require("./Blur"),
+    AcrylicPaint = require("./Paint"),
 }
-
-function Acrylic.init()
-	local baseEffect = Instance.new("DepthOfFieldEffect")
-	baseEffect.FarIntensity = 0
-	baseEffect.InFocusRadius = 0.1
-	baseEffect.NearIntensity = 1
-
-	local depthOfFieldDefaults = {}
-
-	function Acrylic.Enable()
-		for _, effect in pairs(depthOfFieldDefaults) do
-			effect.Enabled = false
-		end
-		baseEffect.Parent = cloneref(game:GetService("Lighting"))
-	end
-
-	function Acrylic.Disable()
-		for _, effect in pairs(depthOfFieldDefaults) do
-			effect.Enabled = effect.enabled
-		end
-		baseEffect.Parent = nil
-	end
-
-	local function registerDefaults()
-		local function register(object)
-			if object:IsA("DepthOfFieldEffect") then
-				depthOfFieldDefaults[object] = { enabled = object.Enabled }
-			end
-		end
-
-		for _, child in pairs(cloneref(game:GetService("Lighting")):GetChildren()) do
-			register(child)
-		end
-
-		if cloneref(game:GetService("Workspace")).CurrentCamera then
-			for _, child in pairs(cloneref(game:GetService("Workspace")).CurrentCamera:GetChildren()) do
-				register(child)
-			end
-		end
-	end
-
-	registerDefaults()
-	Acrylic.Enable()
+local baseEffect
+local owners = {}
+local function register(object)
+    object.FarIntensity = 0
+    object.InFocusRadius = 0.1
+    object.NearIntensity = 1
 end
-
+local function registerDefaults() register(baseEffect) end
+function Acrylic.init()
+    if baseEffect then return end
+    baseEffect = Instance.new("DepthOfFieldEffect")
+    baseEffect.Name = "WindUIAcrylic"
+    registerDefaults()
+end
+function Acrylic.Enable(owner)
+    Acrylic.init()
+    owners[owner or "legacy"] = true
+    baseEffect.Parent = game:GetService("Lighting")
+end
+function Acrylic.Disable(owner)
+    owners[owner or "legacy"] = nil
+    if not next(owners) and baseEffect then
+        baseEffect:Destroy()
+        baseEffect = nil
+    end
+end
 return Acrylic

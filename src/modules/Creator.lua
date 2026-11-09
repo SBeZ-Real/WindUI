@@ -1,3 +1,41 @@
+local Scope = require("../runtime/Scope")
+local Capabilities = require("../runtime/Capabilities")
+local NativeTask = task
+local TaskOwners = setmetatable({}, { __mode = "k" })
+local task = setmetatable({}, { __index = NativeTask })
+
+local function Schedule(method, delay, callback, ...)
+    local scope = Scope.Get()
+    if not scope then
+        if method == "delay" then return NativeTask.delay(delay, callback, ...) end
+        return NativeTask[method](callback, ...)
+    end
+    if scope.Destroyed then return nil end
+    local args = table.pack(...)
+    local token = {}
+    scope:Give(token, function(value)
+        if value.Thread and value.Thread ~= coroutine.running() and coroutine.status(value.Thread) ~= "dead" then NativeTask.cancel(value.Thread) end
+    end, "Tasks")
+    local function run()
+        local success, message = pcall(function() scope:Run(callback, table.unpack(args, 1, args.n)) end)
+        scope:Forget(token)
+        if token.Thread then TaskOwners[token.Thread] = nil end
+        if not success then warn("[WindUI task] " .. tostring(message)) end
+    end
+    token.Thread = method == "delay" and NativeTask.delay(delay, run) or NativeTask[method](run)
+    if coroutine.status(token.Thread) ~= "dead" then TaskOwners[token.Thread] = { Scope = scope, Token = token } end
+    return token.Thread
+end
+
+function task.spawn(callback, ...) return Schedule("spawn", nil, callback, ...) end
+function task.defer(callback, ...) return Schedule("defer", nil, callback, ...) end
+function task.delay(delay, callback, ...) return Schedule("delay", delay, callback, ...) end
+function task.cancel(thread)
+    local owner = TaskOwners[thread]
+    if owner then owner.Scope:Forget(owner.Token); TaskOwners[thread] = nil end
+    if thread and coroutine.status(thread) ~= "dead" then NativeTask.cancel(thread) end
+end
+
 local cloneref = (cloneref or clonereference or function(instance)
 	return instance
 end)
@@ -14,7 +52,7 @@ local RenderStepped = RunService.Heartbeat
 
 local IconsURL = "https://raw.githubusercontent.com/Footagesus/Icons/main/Main-v2.lua"
 
-local Icons = require("../Icons/Main-v2")
+local Icons = require("./IconAdapter")
 
 Icons.SetIconsType("lucide")
 
@@ -29,6 +67,11 @@ Creator = {
 	Themes = nil,
 	Icons = Icons,
 	Signals = {},
+    Scope = Scope,
+    RootScope = Scope.new(),
+    Tasks = task,
+    ActiveTweens = setmetatable({}, { __mode = "k" }),
+    ShapeObjects = setmetatable({}, { __mode = "k" }),
 	Objects = {},
 	LocalizationObjects = {},
 	UIScale = 1,
@@ -137,16 +180,29 @@ function Creator.Init(WindUITable)
 end
 
 function Creator.AddSignal(Signal, Function)
-	local conn = Signal:Connect(Function)
-	table.insert(Creator.Signals, conn)
-	return conn
+    local scope = Scope.Get() or Creator.RootScope
+    local conn = scope:Connect(Signal, Function)
+    table.insert(Creator.Signals, conn)
+    scope:Give(conn, function(value)
+        value:Disconnect()
+        local index = table.find(Creator.Signals, value)
+        if index then table.remove(Creator.Signals, index) end
+    end, "Connections")
+    return conn
 end
 
 function Creator.DisconnectAll()
-	for idx, signal in next, Creator.Signals do
-		local Connection = table.remove(Creator.Signals, idx)
-		Connection:Disconnect()
-	end
+    for idx = #Creator.Signals, 1, -1 do
+        table.remove(Creator.Signals, idx):Disconnect()
+    end
+end
+
+function Creator.RemoveSignal(connection)
+    connection:Disconnect()
+    local index = table.find(Creator.Signals, connection)
+    if index then table.remove(Creator.Signals, index) end
+    local scope = Scope.Get()
+    if scope then scope:Forget(connection) end
 end
 
 function Creator.SafeCallback(Function, ...)
@@ -224,7 +280,7 @@ end
 
 function Creator.AddFontObject(Object)
 	table.insert(Creator.FontObjects, Object)
-	Creator.UpdateFont(Creator.Font)
+    Object.FontFace = Font.new(Creator.Font, Object.FontFace.Weight, Object.FontFace.Style)
 end
 
 function Creator.UpdateFont(FontId)
@@ -340,7 +396,8 @@ end
 function Creator.UpdateTheme(TargetObject, isTween, isTweenTarget, Duration, EasingStyle, EasingDirection)
 	local function ApplyTheme(objData)
 		for Property, ColorKey in pairs(objData.Properties or {}) do
-			local value = Creator.GetThemeProperty(ColorKey, Creator.Theme)
+			local scope = Scope.Owners[objData.Object]
+            local value = Creator.GetThemeProperty(ColorKey, scope and scope.Context and scope.Context.Theme or Creator.Theme)
 			if value ~= nil then
 				if typeof(value) == "Color3" then
 					local gradient = objData.Object:FindFirstChild("LibraryGradient")
@@ -508,6 +565,26 @@ end
 
 function Creator.New(Name, Properties, Children)
 	local Object = Instance.new(Name)
+    local scope = Scope.Get() or Creator.RootScope
+    Scope.Owners[Object] = scope
+    scope:Give(Object, function(value) value:Destroy() end, "Instances")
+    local connection
+    connection = Object.Destroying:Connect(function()
+        scope:Forget(Object)
+        Scope.Owners[Object] = nil
+        Creator.Objects[Object] = nil
+        Creator.ShapeObjects[Object] = nil
+        scope:Forget(connection)
+        local index = table.find(Creator.FontObjects, Object)
+        if index then table.remove(Creator.FontObjects, index) end
+        for key, value in pairs(Creator.LocalizationObjects) do
+            if value.Object == Object then Creator.LocalizationObjects[key] = nil end
+        end
+        local tweens = Creator.ActiveTweens[Object]
+        if tweens then for tween in pairs(tweens) do tween:Cancel() end end
+        connection:Disconnect()
+    end)
+    scope:Give(connection, function(value) value:Disconnect() end, "Connections")
 
 	for Name, Value in next, Creator.DefaultProperties[Name] or {} do
 		Object[Name] = Value
@@ -542,7 +619,43 @@ function Creator.New(Name, Properties, Children)
 end
 
 function Creator.Tween(Object, Time, Properties, ...)
-	return TweenService:Create(Object, TweenInfo.new(Time, ...), Properties)
+	local scope = Scope.Owners[Object] or Scope.Get() or Creator.RootScope
+    local performance = scope.Context and scope.Context.Performance
+    local options = table.pack(...)
+    local tokens = scope.Context and scope.Context.Window and scope.Context.Window.Tokens
+    if tokens then Time *= Time <= 0.12 and tokens.Motion.Fast / 0.1 or tokens.Motion.Normal / 0.18 end
+    if performance and (performance.ReducedMotion or performance.Quality == "Off") then
+        Time = 0
+        options[3], options[4], options[5], options.n = 0, false, 0, 5
+        for key, value in pairs(Properties) do Object[key] = value end
+    elseif performance and performance.Quality == "Low" then
+        Time = math.min(Time, 0.08)
+    end
+    if Time == 0 then options[3], options[4], options[5], options.n = 0, false, 0, 5 end
+    local active = Creator.ActiveTweens[Object] or {}
+    Creator.ActiveTweens[Object] = active
+    for tween, properties in pairs(active) do
+        for key in pairs(Properties) do
+            if properties[key] ~= nil then tween:Cancel(); break end
+        end
+    end
+    local tween = TweenService:Create(Object, TweenInfo.new(Time, table.unpack(options, 1, options.n)), Properties)
+    active[tween] = Properties
+    local connection
+    connection = tween.Completed:Connect(function()
+        active[tween] = nil
+        scope:Forget(tween)
+        scope:Forget(connection)
+        connection:Disconnect()
+    end)
+    scope:Give(connection, function(value) value:Disconnect() end, "Connections")
+    scope:Give(tween, function(value)
+        connection:Disconnect()
+        active[value] = nil
+        value:Cancel()
+        value:Destroy()
+    end, "Tweens")
+    return tween
 end
 
 --[[function Creator.NewRoundFrame(Radius, Type, Properties, Children, isButton, ReturnTable)
@@ -617,7 +730,9 @@ end
 end]]
 
 function Creator.NewRoundFrame(Radius, Type, Properties, Children, IsButton, ReturnTable)
-	return DynamicShapeModule:New(Radius, Type, Properties, Children, IsButton, nil)
+	local Object, Wrapper = DynamicShapeModule:New(Radius, Type, Properties, Children, IsButton, nil)
+    Creator.ShapeObjects[Object] = Wrapper
+    return Object, Wrapper
 end
 
 local New = Creator.New
@@ -638,6 +753,8 @@ function Creator.Drag(mainFrame, dragFrames, ondrag)
 	local DragModule = {
 		CanDraggable = true,
 	}
+    local scope = Scope.Get() or Creator.RootScope
+    scope:Give(DragModule, function() if WindUI.CurrentInput == CurInput then WindUI.CurrentInput = nil end; dragging = false end)
 
 	if not dragFrames or typeof(dragFrames) ~= "table" then
 		dragFrames = { mainFrame }
@@ -660,7 +777,7 @@ function Creator.Drag(mainFrame, dragFrames, ondrag)
 	end
 
 	for _, dragFrame in pairs(dragFrames) do
-		dragFrame.InputBegan:Connect(function(input)
+		Creator.AddSignal(dragFrame.InputBegan, function(input)
 			if not DragModule.CanDraggable or dragging then
 				return
 			end
@@ -688,7 +805,7 @@ function Creator.Drag(mainFrame, dragFrames, ondrag)
 		end)
 	end
 
-	UserInputService.InputChanged:Connect(function(input)
+	Creator.AddSignal(UserInputService.InputChanged, function(input)
 		if not dragging then
 			return
 		end
@@ -707,8 +824,8 @@ function Creator.Drag(mainFrame, dragFrames, ondrag)
 		end
 	end)
 
-	UserInputService.InputEnded:Connect(function(input)
-		if not dragging or WindUI.CurrentInput ~= CurInput then
+	Creator.AddSignal(UserInputService.InputEnded, function(input)
+		if not dragging then
 			return
 		end
 
@@ -754,7 +871,9 @@ function Creator.SanitizeFilename(url)
 end
 
 function Creator.Image(Img, Name, Corner, Folder, Type, IsThemeTag, Themed, ThemeTagName)
-	Folder = Folder or "Temp"
+	Folder = type(Folder) == "table" and Folder.Folder or Folder or "Temp"
+    Img = tostring(Img or "")
+    Type = Type or "Image"
 	Name = Creator.SanitizeFilename(Name)
 
 	local ImageFrame = New("Frame", {
@@ -786,47 +905,26 @@ function Creator.Image(Img, Name, Corner, Folder, Type, IsThemeTag, Themed, Them
 			},
 		}).IconFrame
 		IconLabel.Parent = ImageFrame
-	elseif string.find(Img, "http") and not string.find(Img, "roblox.com") then
-		local FileName = "WindUI/" .. Folder .. "/assets/." .. Type .. "-" .. Name .. ".png"
-		local success, response = pcall(function()
-			task.spawn(function()
-				local response = Creator.Request
-						and Creator.Request({
-							Url = Img,
-							Method = "GET",
-						}).Body
-					or {}
-
-				if not RunService:IsStudio() and writefile then
-					writefile(FileName, response)
-				end
-				--ImageFrame.ImageLabel.Image = getcustomasset(FileName)
-
-				local assetSuccess, asset = pcall(getcustomasset, FileName)
-				if assetSuccess then
-					ImageFrame.ImageLabel.Image = asset
-				else
-					warn(
-						string.format(
-							"[ WindUI.Creator ] Failed to load custom asset '%s': %s",
-							FileName,
-							tostring(asset)
-						)
-					)
-					ImageFrame:Destroy()
-
-					return
-				end
-			end)
-		end)
-		if not success then
-			warn(
-				"[ WindUI.Creator ]  '" .. identifyexecutor()
-					or "Studio" .. "' doesnt support the URL Images. Error: " .. response
-			)
-
-			ImageFrame:Destroy()
-		end
+    elseif string.find(Img, "http") and not string.find(Img, "roblox.com") then
+        local capabilities = Capabilities.Detect()
+        if capabilities.File and capabilities.Request and capabilities.CustomAsset then
+            local FileName = "WindUI/" .. Folder .. "/assets/." .. Type .. "-" .. Name .. ".png"
+            task.spawn(function()
+                local success, response = pcall(function()
+                    local result = Creator.Request({ Url = Img, Method = "GET" })
+                    assert(type(result) == "table" and type(result.Body) == "string", "Invalid asset response")
+                    assert(not result.StatusCode or result.StatusCode < 400, "Asset request failed")
+                    assert(Capabilities.MakeFolder("WindUI/" .. Folder .. "/assets"))
+                    writefile(FileName, result.Body)
+                    return (getcustomasset or getsynasset)(FileName)
+                end)
+                if success and ImageFrame.Parent then
+                    ImageFrame.ImageLabel.Image = response
+                elseif not success then
+                    warn("[WindUI asset] " .. tostring(response))
+                end
+            end)
+        end
 	elseif Img == "" then
 		ImageFrame.Visible = false
 	else
@@ -906,7 +1004,9 @@ function Creator:OnThemeChange(callback)
 	end
 
 	local id = HttpService:GenerateGUID(false)
-	Creator.ThemeChangeCallbacks[id] = callback
+	local scope = Scope.Get() or Creator.RootScope
+    Creator.ThemeChangeCallbacks[id] = function(...) return scope:Run(callback, ...) end
+    scope:Give(id, function() Creator.ThemeChangeCallbacks[id] = nil end)
 
 	return {
 		Disconnect = function()

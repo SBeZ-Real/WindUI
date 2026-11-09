@@ -13,6 +13,7 @@ local CurrentCamera = workspace.CurrentCamera
 local Acrylic = require("../../utils/Acrylic/Init")
 
 local Creator = require("../../modules/Creator")
+local task = Creator.Tasks
 local New = Creator.New
 local Tween = Creator.Tween
 
@@ -28,6 +29,11 @@ local Notified = false
 
 return function(Config)
 	local Window = {
+        ID = Config.WindUI.ID,
+        Scope = Config.WindUI.Scope,
+        Context = Config.WindUI,
+        Storage = Config.Storage,
+        ConfigNamespace = Config.ID or (Config.WindUI.ID ~= "Window1" and Config.WindUI.ID or nil),
 		Title = Config.Title or "UI Library",
 		Author = Config.Author,
 		Icon = Config.Icon,
@@ -122,28 +128,17 @@ return function(Config)
 		Window.Topbar = { Height = 52, ButtonsType = "Default" }
 	end
 
-	if not RunService:IsStudio() and Window.Folder and writefile then
-		if not isfolder("WindUI/" .. Window.Folder) then
-			makefolder("WindUI/" .. Window.Folder)
-		end
-		if not isfolder("WindUI/" .. Window.Folder .. "/assets") then
-			makefolder("WindUI/" .. Window.Folder .. "/assets")
-		end
-		if not isfolder(Window.Folder) then
-			makefolder(Window.Folder)
-		end
-		if not isfolder(Window.Folder .. "/assets") then
-			makefolder(Window.Folder .. "/assets")
-		end
-	end
+    if Config.WindUI.Capabilities.File and Window.Folder then
+        local Capabilities = require("../../runtime/Capabilities")
+        Capabilities.MakeFolder("WindUI/" .. Window.Folder .. "/assets")
+        Capabilities.MakeFolder(Window.Folder .. "/assets")
+    end
 
 	local UICorner = New("UICorner", {
 		CornerRadius = UDim.new(0, Window.UICorner),
 	})
 
-	if Window.Folder then
-		Window.ConfigManager = ConfigManager:Init(Window)
-	end
+	Window.ConfigManager = ConfigManager:Init(Window)
 
 	if Window.Acrylic then
 		local AcrylicPaint, BlurModule = Acrylic.AcrylicPaint({ UseAcrylic = Window.Acrylic })
@@ -490,7 +485,7 @@ return function(Config)
 		end
 
 		if Window.User.Callback then
-			Creator.AddSignal(UserIcon.MouseButton1Click, function()
+			Creator.AddSignal(UserIcon.Activated, function()
 				Window.User.Callback()
 			end)
 			Creator.AddSignal(UserIcon.MouseEnter, function()
@@ -978,7 +973,7 @@ return function(Config)
 			Object = ButtonContainer,
 		}
 
-		Creator.AddSignal(Button.MouseButton1Click, function()
+		Creator.AddSignal(Button.Activated, function()
 			if Callback then
 				Callback()
 			end
@@ -1231,6 +1226,10 @@ return function(Config)
 	end
 
 	function Window:ToggleFullscreen()
+		if Window.Fullscreen then
+            if Window.IsFullscreen then return Window:Restore() end
+            return Window:Fullscreen()
+        end
 		local isFullscreen = Window.IsFullscreen
 		-- Creator.SetDraggable(isFullscreen)
 		WindowDragModule:Set(isFullscreen)
@@ -1253,7 +1252,7 @@ return function(Config)
 
 	Creator.AddSignal(Config.WindUI.ScreenGui:GetPropertyChangedSignal("AbsoluteSize"), function()
 		if Window.IsFullscreen then
-			SetSize()
+			if Window._ApplyFullscreen then Window:_ApplyFullscreen() else SetSize() end
 		end
 	end)
 
@@ -1314,224 +1313,59 @@ return function(Config)
 		end
 	end
 
-	function Window:Open()
-		if Window.Destroyed then
-			return
-		end
-		task.spawn(function()
-			if Window.OnOpenCallback then
-				task.spawn(function()
-					Creator.SafeCallback(Window.OnOpenCallback)
-				end)
-			end
+    function Window:Open()
+        if Window.Destroyed then return end
+        Window.Closed = false
+        Window.Minimized = false
+        Window.CanDropdown = true
+        Window.CanResize = Window.Resizable
+        Window.UIElements.Main.Visible = true
+        Window.UIElements.Main.Main.Visible = true
+        Tween(Window.UIElements.Main, 0.18, { Size = Window.Size }):Play()
+        Window.UIElements.Main.Background.ImageTransparency = Window.Transparent and Config.WindUI.TransparencyValue or 0
+        if Window.UIElements.BackgroundGradient then Window.UIElements.BackgroundGradient.ImageTransparency = 0 end
+        if BGImage then
+            BGImage.Visible = true
+            if BGImage:IsA("ImageLabel") then BGImage.ImageTransparency = Window.BackgroundImageTransparency end
+        end
+        Blur.ImageTransparency = Window.ShadowTransparency
+        BottomDragFrame.Size = UDim2.new(0, Window.DragFrameSize, 0, 4)
+        BottomDragFrame.ImageTransparency = 0.8
+        ResizeHandle.ImageLabel.ImageTransparency = Window.Resizable and 0.8 or 1
+        WindowDragModule:Set(true)
+        if Window.IsFullscreen then Window.CanResize = false; WindowDragModule:Set(false) end
+        if Window.OpenButtonMain then Window.OpenButtonMain:Visible(false) end
+        Config.WindUI:ToggleAcrylic(true)
+        Creator.SafeCallback(Window.OnOpenCallback)
+        return Window
+    end
+    Window.DragModule = WindowDragModule
+    function Window:Close()
+        if Window.Destroyed then return { Destroy = function() end } end
+        Window.Closed = true
+        Window.CanDropdown = false
+        Window.CanResize = false
+        Window.UIElements.Main.Visible = false
+        WindowDragModule:Set(false)
+        Config.WindUI:ToggleAcrylic(false)
+        if Window.OpenButtonMain and Window.IsOpenButtonEnabled then Window.OpenButtonMain:Visible(true) end
+        if Window.Popup then Window.Popup:Close() end
+        Creator.SafeCallback(Window.OnCloseCallback)
+        local Close = {}
+        function Close:Destroy() return Window:Destroy() end
+        return Close
+    end
+    function Window:Destroy()
+        if Window.Destroyed then return end
+        if Window.CurrentConfig and Window.CurrentConfig.StopAutoSave then Window.CurrentConfig:StopAutoSave() end
+        Window:Close()
+        Window.Destroyed = true
+        if Window.AcrylicPaint and Window.AcrylicPaint.Model then Window.AcrylicPaint.Model:Destroy() end
+        Creator.SafeCallback(Window.OnDestroyCallback)
+        Config.WindUI.WindowManager:Remove(Window)
+        Window.Scope:Destroy()
+    end
 
-			task.wait(0.06)
-			Window.Closed = false
-
-			Window.UIElements.Main.Size = UDim2.new(Window.Size.X.Scale, Window.Size.X.Offset, 0, 100)
-
-			Tween(Window.UIElements.Main, 0.8, {
-				--GroupTransparency = 0,
-				Size = Window.Size,
-			}, Enum.EasingStyle.Quint, Enum.EasingDirection.Out):Play()
-
-			if Window.UIElements.BackgroundGradient then
-				Tween(Window.UIElements.BackgroundGradient, 0.2, {
-					ImageTransparency = 0,
-				}, Enum.EasingStyle.Quint, Enum.EasingDirection.Out):Play()
-			end
-
-			Window.UIElements.Main.Background.ImageTransparency = 1
-			Tween(Window.UIElements.Main.Background, 0.4, {
-				--Size = UDim2.new(1, 0, 1, 0),
-				ImageTransparency = Window.Transparent and Config.WindUI.TransparencyValue or 0,
-			}, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out):Play()
-
-			if BGImage then
-				if BGImage:IsA("VideoFrame") then
-					BGImage.Visible = true
-				else
-					Tween(BGImage, 0.2, {
-						ImageTransparency = Window.BackgroundImageTransparency,
-					}, Enum.EasingStyle.Quint, Enum.EasingDirection.Out):Play()
-				end
-			end
-
-			if Window.OpenButtonMain and Window.IsOpenButtonEnabled then
-				Window.OpenButtonMain:Visible(false)
-			end
-
-			--[[Config.WindUI.UIScaleObj.Scale -= 1 - 0.85
-			Tween(
-				Config.WindUI.UIScaleObj,
-				0.33,
-				{ Scale = Config.WindUI.UIScale },
-				Enum.EasingStyle.Back,
-				Enum.EasingDirection.Out
-			):Play()]]
-			Tween(
-				Blur,
-				0.25,
-				{ ImageTransparency = Window.ShadowTransparency },
-				Enum.EasingStyle.Quint,
-				Enum.EasingDirection.Out
-			):Play()
-			--[[if UIStroke then
-				Tween(UIStroke, 0.25, { Transparency = 0.8 }, Enum.EasingStyle.Quint, Enum.EasingDirection.Out):Play()
-			end]]
-
-			Tween(
-				BottomDragFrame,
-				0.45,
-				{ Size = UDim2.new(0, Window.DragFrameSize, 0, 4), ImageTransparency = 0.8 },
-				Enum.EasingStyle.Exponential,
-				Enum.EasingDirection.Out
-			):Play()
-			WindowDragModule:Set(true)
-
-			if Window.Resizable then
-				Tween(
-					ResizeHandle.ImageLabel,
-					0.45,
-					{ ImageTransparency = 0.8 },
-					Enum.EasingStyle.Exponential,
-					Enum.EasingDirection.Out
-				):Play()
-				Window.CanResize = true
-			end
-
-			Window.CanDropdown = true
-			Window.UIElements.Main.Visible = true
-			--task.spawn(function()
-			--task.wait(0.05)
-
-			Window.UIElements.Main:WaitForChild("Main").Visible = true
-
-			Config.WindUI:ToggleAcrylic(true)
-			--end)
-		end)
-	end
-	function Window:Close()
-		if Window.Destroyed then
-			return
-		end
-
-		local Close = {}
-
-		if Window.OnCloseCallback then
-			task.spawn(function()
-				Creator.SafeCallback(Window.OnCloseCallback)
-			end)
-		end
-
-		Config.WindUI:ToggleAcrylic(false)
-
-		if Window.UIElements.Main and Window.UIElements.Main:WaitForChild("Main") then
-			Window.UIElements.Main.Main.Visible = false
-		end
-
-		Window.CanDropdown = false
-		Window.Closed = true
-
-		Tween(Window.UIElements.Main, 0.9, {
-			--GroupTransparency = 1,
-			Size = UDim2.new(Window.Size.X.Scale, Window.Size.X.Offset, 0, 0),
-		}, Enum.EasingStyle.Quint, Enum.EasingDirection.Out):Play()
-		if Window.UIElements.BackgroundGradient then
-			Tween(Window.UIElements.BackgroundGradient, 0.2, {
-				ImageTransparency = 1,
-			}, Enum.EasingStyle.Quint, Enum.EasingDirection.InOut):Play()
-		end
-
-		Tween(Window.UIElements.Main.Background, 0.3, {
-			--Size = UDim2.new(1, 0, 1, -240),
-			ImageTransparency = 1,
-		}, Enum.EasingStyle.Exponential, Enum.EasingDirection.InOut):Play()
-
-		--[[Tween(
-			Config.WindUI.UIScaleObj,
-			0.28,
-			{ Scale = Config.WindUI.UIScale - (1 - 0.85) },
-			Enum.EasingStyle.Quint,
-			Enum.EasingDirection.Out
-		):Play()]]
-		if BGImage then
-			if BGImage:IsA("VideoFrame") then
-				BGImage.Visible = false
-			else
-				Tween(BGImage, 0.3, {
-					ImageTransparency = 1,
-				}, Enum.EasingStyle.Quint, Enum.EasingDirection.Out):Play()
-			end
-		end
-		Tween(Blur, 0.25, { ImageTransparency = 1 }, Enum.EasingStyle.Quint, Enum.EasingDirection.Out):Play()
-		--[[if UIStroke then
-			Tween(UIStroke, 0.25, { Transparency = 1 }, Enum.EasingStyle.Quint, Enum.EasingDirection.Out):Play()
-		end]]
-
-		Tween(
-			BottomDragFrame,
-			0.3,
-			{ Size = UDim2.new(0, 0, 0, 4), ImageTransparency = 1 },
-			Enum.EasingStyle.Exponential,
-			Enum.EasingDirection.InOut
-		):Play()
-		Tween(
-			ResizeHandle.ImageLabel,
-			0.3,
-			{ ImageTransparency = 1 },
-			Enum.EasingStyle.Exponential,
-			Enum.EasingDirection.Out
-		):Play()
-		WindowDragModule:Set(false)
-		Window.CanResize = false
-
-		task.spawn(function()
-			task.wait(0.4)
-
-			if not Window.Closed then
-				return
-			end
-
-			Window.UIElements.Main.Visible = false
-
-			if Window.OpenButtonMain and not Window.Destroyed and not Window.IsPC and Window.IsOpenButtonEnabled then
-				Window.OpenButtonMain:Visible(true)
-			end
-		end)
-
-		function Close:Destroy()
-			task.spawn(function()
-				if Window.OnDestroyCallback then
-					task.spawn(function()
-						Creator.SafeCallback(Window.OnDestroyCallback)
-					end)
-				end
-
-				if Window.AcrylicPaint and Window.AcrylicPaint.Model then
-					Window.AcrylicPaint.Model:Destroy()
-				end
-
-				Window.Destroyed = true
-
-				task.wait(0.4)
-
-				Config.WindUI.ScreenGui:Destroy()
-				Config.WindUI.NotificationGui:Destroy()
-				Config.WindUI.DropdownGui:Destroy()
-				Config.WindUI.TooltipGui:Destroy()
-
-				Creator.DisconnectAll()
-
-				return
-			end)
-		end
-
-		return Close
-	end
-	function Window:Destroy()
-		return Window:Close():Destroy()
-	end
 	function Window:Toggle()
 		if Window.Closed then
 			Window:Open()
@@ -1592,6 +1426,7 @@ return function(Config)
 	end
 
 	function Window:SetUIScale(v)
+        if type(v) ~= "number" or v <= 0 or v >= math.huge then return false, "UIScale must be a positive finite number" end
 		Config.WindUI.UIScale = v
 		Tween(Config.WindUI.UIScaleObj, 0.2, { Scale = v }, Enum.EasingStyle.Quint, Enum.EasingDirection.Out):Play()
 		return Window
@@ -1641,7 +1476,7 @@ return function(Config)
 	end
 
 	if Window.OpenButtonMain and Window.OpenButtonMain.Button then
-		Creator.AddSignal(Window.OpenButtonMain.Button.TextButton.MouseButton1Click, function()
+		Creator.AddSignal(Window.OpenButtonMain.Button.TextButton.Activated, function()
 			-- OpenButtonContainer.Visible = false
 			--Window.OpenButtonMain:Visible(false)
 			Window:Open()
@@ -1649,7 +1484,7 @@ return function(Config)
 	end
 
 	Creator.AddSignal(UserInputService.InputBegan, function(input, isProcessed)
-		if isProcessed then
+		if isProcessed or UserInputService:GetFocusedTextBox() or Config.WindUI.WindowManager.Focused ~= Window then
 			return
 		end
 
@@ -1662,7 +1497,7 @@ return function(Config)
 
 	task.spawn(function()
 		--task.wait(1.38583)
-		Window:Open()
+		if not Window.Closed then Window:Open() end
 	end)
 
 	function Window:EditOpenButton(OpenButtonConfig)
@@ -1678,13 +1513,21 @@ return function(Config)
 	local TabModule = TabModuleMain.Init(Window, Config.WindUI, Config.WindUI.TooltipGui)
 	TabModule:OnChange(function(t)
 		Window.CurrentTab = t
+        if Window.Navigation then Window.Navigation:Push(t) end
 	end)
 
 	Window.TabModule = TabModule
 
 	function Window:Tab(TabConfig)
-		TabConfig.Parent = Window.UIElements.SideBar.Frame
-		return TabModule.New(TabConfig, Config.WindUI.UIScale)
+		TabConfig.Parent = TabConfig.Parent or Window.UIElements.SideBar.Frame
+		local started = os.clock()
+        local scope = Creator.Scope.new(Window.Scope)
+        local tab = scope:Run(TabModule.New, TabConfig, Config.WindUI.UIScale)
+        tab.Scope = scope
+        scope:Bind(tab)
+        if Window.Layout then Window:SetLayout(Window.Layout) end
+        Config.WindUI.Performance:Record("CreateTab", os.clock() - started)
+        return tab
 	end
 
 	function Window:SelectTab(Tab)
@@ -1692,13 +1535,13 @@ return function(Config)
 	end
 
 	function Window:Section(SectionConfig)
-		return SectionModule.New(
+		return Window.Scope:Bind(SectionModule.New(
 			SectionConfig,
 			Window.UIElements.SideBar.Frame,
 			Window.Folder,
 			Config.WindUI.UIScale,
 			Window
-		)
+		))
 	end
 
 	function Window:IsResizable(v)
@@ -1750,6 +1593,8 @@ return function(Config)
 
 	local DialogModule = require("./Dialog")
 	function Window:Dialog(DialogConfig)
+        local scope = Creator.Scope.new(Window.Scope)
+        return scope:Run(function()
 		local DialogTable = {
 			Title = DialogConfig.Title or "Dialog",
 			Width = DialogConfig.Width or 320,
@@ -1890,7 +1735,11 @@ return function(Config)
 
 		for _, Button in next, DialogTable.Buttons do
 			local ButtonFrame =
-				CreateButton(Button.Title, Button.Icon, Button.Callback, Button.Variant, ButtonsContent, Dialog, true)
+				CreateButton(Button.Title, Button.Icon, function()
+                    Dialog.Result = Button.Result or Button.Title
+                    Dialog:Close(Dialog.Result)
+                    Window.Scope:Run(function() Creator.SafeCallback(Button.Callback) end)
+                end, Button.Variant, ButtonsContent, nil, true)
 			table.insert(Buttons, ButtonFrame)
 			ButtonFrame.Size = UDim2.new(1, 0, 1, 0)
 		end
@@ -1949,7 +1798,13 @@ return function(Config)
 		-- wait()
 		Dialog:Open()
 
-		return Dialog
+        Dialog.Scope = scope
+        Dialog.OnResult = DialogConfig.OnResult
+        scope:Give(Dialog, function()
+            if not Dialog.Closed then Dialog.Closed = true; Dialog.Result = "destroyed"; Creator.SafeCallback(Dialog.OnResult, Dialog.Result) end
+        end)
+		return scope:Bind(Dialog)
+        end)
 	end
 
 	local ClickedClose = false
@@ -2009,8 +1864,10 @@ return function(Config)
 			--Tween(FullScreenIcon.ImageLabel, 0.12, {ImageTransparency = 0}):Play()
 			Tween(ResizeHandle.ImageLabel, 0.1, { ImageTransparency = 0.35 }):Play()
 
-			Creator.AddSignal(input.Changed, function()
+            local connection
+			connection = Creator.AddSignal(input.Changed, function()
 				if input.UserInputState == Enum.UserInputState.End then
+                    Creator.RemoveSignal(connection)
 					if Config.WindUI.CurrentInput and Config.WindUI.CurrentInput ~= CurResizeInput then
 						return
 					end
@@ -2032,6 +1889,7 @@ return function(Config)
 			input.UserInputType == Enum.UserInputType.MouseButton1
 			or input.UserInputType == Enum.UserInputType.Touch
 		then
+			if not Window.CanResize then return end
 			if Config.WindUI.CurrentInput and Config.WindUI.CurrentInput ~= CurResizeInput then
 				return
 			end
@@ -2158,7 +2016,7 @@ return function(Config)
 		SearchLabel.Size = UDim2.new(1, -Window.UIPadding / 2, 0, 39)
 		SearchLabel.Position = UDim2.new(0, Window.UIPadding / 2, 0,--[[Window.UIPadding/2]] 0)
 
-		Creator.AddSignal(SearchLabel.MouseButton1Click, function()
+		Creator.AddSignal(SearchLabel.Activated, function()
 			if IsOpen then
 				return
 			end

@@ -1,6 +1,7 @@
 local KeySystem = {}
 
 local Creator = require("../modules/Creator")
+local task = Creator.Tasks
 local New = Creator.New
 local Tween = Creator.Tween
 
@@ -191,6 +192,7 @@ function KeySystem.new(Config, Filename, func, keyValidator)
 	-- end
 
 	local ExitButton = CreateButton("Exit", "log-out", function()
+		Config.WindUI.Cancelled = true
 		KeyDialog:Close()()
 	end, "Tertiary", ButtonsContainer.Frame)
 
@@ -203,7 +205,8 @@ function KeySystem.new(Config, Filename, func, keyValidator)
 
 	if Config.KeySystem.URL then
 		CreateButton("Get key", "key", function()
-			setclipboard(Config.KeySystem.URL)
+            local success, message = require("../runtime/Capabilities").Copy(Config.KeySystem.URL)
+            if not success then Config.WindUI:Notify({ Title = "Key link", Content = message .. ": " .. Config.KeySystem.URL }) end
 		end, "Secondary", ButtonsContainer.Frame)
 	end
 
@@ -426,7 +429,10 @@ function KeySystem.new(Config, Filename, func, keyValidator)
 
 	local function handleSuccess(key)
 		KeyDialog:Close()()
-		writefile((Config.Folder or "Temp") .. "/" .. Filename .. ".key", tostring(key))
+        local path = (Config.Folder or "Temp") .. "/" .. Filename .. ".key"
+        local saved, message = false, "File storage unavailable"
+        if type(writefile) == "function" then saved, message = pcall(writefile, path, tostring(key)) end
+        if not saved then warn("[WindUI key storage] " .. tostring(message)) end
 		task.wait(0.4)
 		func(true)
 	end

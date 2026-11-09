@@ -12,13 +12,15 @@ function PopupModule.new(PopupConfig, Parent)
         Icon = PopupConfig.Icon,
         IconThemed = PopupConfig.IconThemed,
         Thumbnail = PopupConfig.Thumbnail,
-        Buttons = PopupConfig.Buttons,
+        Buttons = PopupConfig.Buttons or {},
         
         IconSize = 22,
     }
     
     local DialogInit = require("../window/Dialog")
     local Dialog = DialogInit.Create(true, "Popup", PopupConfig.WindUI.Window, PopupConfig.WindUI, Parent)
+    Dialog.Scope = Creator.Scope.Get()
+    function Popup:Close() return Dialog:Close() end
     
     local ThumbnailSize = 200
     
