@@ -7,8 +7,8 @@ Ngày: 09/11/2026. Source gốc: `d2c9bac5f96f997418d680d19cb759892542e492`; ico
 | Kiểm tra | Kết quả |
 |---|---|
 | Build upstream baseline bằng DarkLua 0.17.1 | Pass, 1.318 KiB, 423 ms ở lượt ghi nhận |
-| Build source nâng cấp | Pass, khoảng 1.388 KiB; hai lượt kiểm reproducibility 477/524 ms |
-| Build lặp cùng SOURCE_DATE_EPOCH | Hai file dist/main.lua cùng SHA-256 |
+| Build source nâng cấp | Pass, khoảng 1.389 KiB; hai lượt kiểm reproducibility 386/454 ms |
+| Build lặp cùng SOURCE_DATE_EPOCH | Hai lần build từ archive sạch cùng SHA-256 với dist/main.lua đã commit |
 | Lỗi DarkLua giả lập exit 42 | Build trả đúng 42; không ghi đè distribution trước đó |
 | Luau 0.746 compile | Pass distribution và 99 file source/test; snippet Lua trong tài liệu cũng compile |
 | Inventory API | Pass 370 khai báo hàm ở 63 file; tên và prefix tham số cũ còn tồn tại |
@@ -39,10 +39,10 @@ Một lượt ghi nhận, 30 lần mỗi kích thước; median và worst của 
 
 | Hàng | Median ms | Worst ms |
 |---|---:|---:|
-| 50 | 0,0721 | 0,2243 |
-| 200 | 0,3913 | 0,7862 |
-| 500 | 1,0303 | 1,2672 |
-| 1000 | 2,0958 | 2,5052 |
+| 50 | 0,0596 | 0,0843 |
+| 200 | 0,3207 | 0,4617 |
+| 500 | 0,8172 | 1,0121 |
+| 1000 | 1,6958 | 2,0457 |
 
 Đây là benchmark model thuần Luau, không tạo GUI Roblox, không phải FPS và không phải so sánh tăng tốc với upstream. Thời gian biến thiên theo tải máy. Integration xác nhận 1.000 hàng DataTable không tạo 1.000 row button trong vùng nhìn thấy mô phỏng.
 
@@ -73,6 +73,6 @@ Một lượt ghi nhận, 30 lần mỗi kích thước; median và worst của 
 
 ## Bằng chứng và lệnh tái tạo
 
-Trong gói bàn giao có `artifacts/build-validation.txt`, `artifacts/tests.txt`, `artifacts/manifest.json`, source và git bundle. Lượt reproducibility dùng `SOURCE_DATE_EPOCH=1794178800`. Chạy `npm test` với Luau/Luau-compile trong PATH. Build source trước test khi có sửa mã.
+Trong gói bàn giao có `artifacts/build-validation.txt`, `artifacts/tests.txt`, `artifacts/manifest.json`, source và git bundle. Lượt reproducibility dùng `SOURCE_DATE_EPOCH=1794265200`. Chạy `npm test` với Luau/Luau-compile trong PATH. Build source trước test khi có sửa mã.
 
 PR/push đang bị chặn: connector xác định tài khoản SBeZ-Real; truy vấn WindUI trong các repo đã cấp quyền trả rỗng, truy cập SBeZ-Real/WindUI trả 404. Công cụ hiện có không tạo fork/repository, CLI và trình duyệt không có đăng nhập GitHub sử dụng được. Không ghi vào repository không liên quan hoặc upstream của người khác.
