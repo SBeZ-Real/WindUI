@@ -1,6 +1,6 @@
 # Báo cáo build và kiểm thử
 
-Ngày: 09/11/2026. Source gốc: `d2c9bac5f96f997418d680d19cb759892542e492`; icons: `46d30c19ba7bc601d6ec794a48dc3a89568b1eec`. Nhánh: `fluent-integration`. Commit triển khai đầu: `6b4e9bb`; commit hoàn thiện được ghi trong manifest của gói bàn giao.
+Ngày: 09/11/2026. Source gốc: `d2c9bac5f96f997418d680d19cb759892542e492`; icons: `46d30c19ba7bc601d6ec794a48dc3a89568b1eec`. Nhánh: `fluent-integration`. Commit triển khai local đầu: `6b4e9bb`; ánh xạ commit GitHub nằm ở cuối báo cáo. Manifest của gói ZIP ghi các commit local trước khi xuất bản.
 
 ## Kết quả đã chạy
 
@@ -59,7 +59,7 @@ Một lượt ghi nhận, 30 lần mỗi kích thước; median và worst của 
 | Tablet/hybrid | Not tested |
 | Gamepad thật | Not tested |
 | Provider KeySystem qua mạng thật | Not tested |
-| GitHub Actions của fork | Not run; chưa có đích push |
+| GitHub Actions của fork | Not run; mã đã lên fork, API workflows/runs chưa có kết quả |
 
 ## Giới hạn còn tồn tại
 
@@ -75,4 +75,19 @@ Một lượt ghi nhận, 30 lần mỗi kích thước; median và worst của 
 
 Trong gói bàn giao có `artifacts/build-validation.txt`, `artifacts/tests.txt`, `artifacts/manifest.json`, source và git bundle. Lượt reproducibility dùng `SOURCE_DATE_EPOCH=1794265200`. Chạy `npm test` với Luau/Luau-compile trong PATH. Build source trước test khi có sửa mã.
 
-PR/push đang bị chặn: connector xác định tài khoản SBeZ-Real; truy vấn WindUI trong các repo đã cấp quyền trả rỗng, truy cập SBeZ-Real/WindUI trả 404. Công cụ hiện có không tạo fork/repository, CLI và trình duyệt không có đăng nhập GitHub sử dụng được. Không ghi vào repository không liên quan hoặc upstream của người khác.
+## Xuất bản GitHub
+
+Fork [SBeZ-Real/WindUI](https://github.com/SBeZ-Real/WindUI/tree/fluent-integration) đã được xác nhận có quyền ghi. Nhánh `fluent-integration` đã được xuất bản và [PR #1](https://github.com/SBeZ-Real/WindUI/pull/1) mở dạng draft, đích là `main` của chính fork. GitHub báo không có xung đột. Không ghi vào upstream, không merge, không tạo tag hoặc release.
+
+Các commit được tạo qua GitHub Git Data API vì CLI không có thông tin đăng nhập. GitHub cấp metadata và SHA commit mới; từng Git tree được đối chiếu với bản local trước khi tạo nhánh. Fetch nhánh về và `git diff --quiet` xác nhận toàn bộ nội dung triển khai không đổi.
+
+| Commit local trong ZIP | Commit GitHub | Git tree giống nhau |
+|---|---|---|
+| `6b4e9bb` | `48bcb29e3b5168871d42b6c5d46dd909de339b82` | `4d34bfc24e501ee80c1ea2cf678ee1f8dfee9501` |
+| `a96f3eb` | `7410af68a6f3e1db14673a44809a566ba1723a79` | `3013f4a86fec891325070c407ff5767b077fa0f8` |
+| `a43dc0c` | `99ca4479e3622dda5067e366a60ee37679486cb9` | `0f36d27c6afd58525992b3e3d22f7d3559a4bc2f` |
+| `a191aa0` | `7c4d100fbed21bb24638c8b15848065afb588015` | `c8ed08e395df58784b4ac9f4d6d9bd80c70b03d5` |
+
+Commit tiếp theo chỉ cập nhật ba báo cáo Markdown với trạng thái xuất bản; source, tests và distribution giữ nguyên. Không chạy lại toàn bộ test cho thay đổi tài liệu này; kết quả local phía trên áp dụng cho cùng nội dung mã.
+
+GitHub Actions chưa có lượt chạy. API danh sách workflows và runs trả về rỗng dù file workflow đã có trong repository. Kết nối hiện tại không hỗ trợ bật Actions hoặc dispatch workflow; cần chủ repository kiểm tra mục Actions. Không ghi nhận CI từ xa là pass. Các hạn chế kiểm thử Roblox native vẫn giữ nguyên và PR tiếp tục ở draft.

@@ -18,16 +18,16 @@ Ngày đối chiếu: 09/11/2026. “Có mã” không đồng nghĩa đã nghi�
 | 12 Configuration | Memory/File/custom, migration, autosave, profile/preset/workspace, backup | State restore, corrupt preservation, rename path, denied IO, recovery; native JSON/filesystem runtime chưa chạy |
 | 13 Rendering | Native GUI và các asset hiện có; adapter icon MIT, không có UI screenshot giả | DarkLua/Luau/Rojo build; quyền tải asset trong game cần runtime thật |
 | 14 Adaptive UX | Touch target, compact menu, tooltip/popups bounds, Activated, Escape/ButtonB, focus | Geometry/input events mô phỏng; Android/tablet/gamepad thật chưa kiểm chứng |
-| 15 QA | API inventory, unit/integration/storage/key/lifecycle, CI sửa lỗi trạng thái | Kiểm thử local qua; GitHub Actions chưa chạy do chưa push được |
+| 15 QA | API inventory, unit/integration/storage/key/lifecycle, CI sửa lỗi trạng thái | Kiểm thử local qua; mã đã lên fork nhưng GitHub Actions chưa có lượt chạy |
 | 16 DX | API docs, kiến trúc, gallery, Theme Studio, diagnostics, native benchmark | Snippet Lua compile; gallery đóng gói thành place; demo chưa chạy native |
-| 17 GitHub | Nhánh fluent-integration, commit local, source/git bundle, mô tả PR | Chặn: chưa tìm thấy WindUI writable trong tài khoản SBeZ-Real; chưa có PR |
+| 17 GitHub | Nhánh fluent-integration, bốn commit triển khai, source/git bundle, PR | Đã đăng lên SBeZ-Real/WindUI và mở [PR #1](https://github.com/SBeZ-Real/WindUI/pull/1) dạng draft; nội dung Git tree khớp local |
 | 18 Ưu tiên chất lượng | Chặn build/test lỗi, Off không phụ thuộc animation, giữ API | Build failure propagation và automation pass; native gates còn mở |
-| 19 Giai đoạn | Baseline → core/theme/window/components → engines → QA/docs | Các phần source đã làm; feature PR theo gate chưa thể tạo vì chưa có đích ghi |
+| 19 Giai đoạn | Baseline → core/theme/window/components → engines → QA/docs | Bốn mốc triển khai đã lên một PR tích hợp; chưa tuyên bố các gate nghiệm thu native đã đạt |
 | 20 Nghiệm thu | Báo cáo bằng chứng, giới hạn và rollback rõ ràng | Chưa đạt nghiệm thu cuối khi thiếu native QA và PR review; không tự merge/release |
 
 ## Các gate chưa được tuyên bố đạt
 
-Gate 0 thiếu xác nhận repository writable. Gate 1–5 có kiểm tra logic và cleanup tự động, nhưng không thay thế runtime gate trong Roblox. Gate 6 còn thiếu visual/device/performance baseline thực và chạy CI từ xa. Không dùng kết quả CLI để đánh dấu các ô đó thành pass.
+Gate 0 đã xác nhận repository writable và xuất bản nhánh/PR thành công. Gate 1–5 có kiểm tra logic và cleanup tự động, nhưng không thay thế runtime gate trong Roblox. Gate 6 còn thiếu visual/device/performance baseline thực và chạy CI từ xa. Không dùng kết quả CLI để đánh dấu các ô đó thành pass.
 
 ## Kiểm tra cần chạy trên Roblox
 

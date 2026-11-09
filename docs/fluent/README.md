@@ -38,4 +38,6 @@ Mã nguồn dùng đường dẫn require cho DarkLua. Trong Studio hãy dùng b
 
 Không có Roblox Studio, Roblox client hay executor thật trong môi trường Linux này. Vì vậy chưa có kết luận về hình thức hiển thị, FPS, cảm ứng hoặc gamepad trên thiết bị thật. Test mô phỏng không thay thế các kiểm tra đó. Không tạo ảnh giả để làm bằng chứng giao diện.
 
-Chưa có repository WindUI có quyền ghi trong tài khoản GitHub đã kết nối. Source, commit, bundle và nội dung PR đã chuẩn bị; push/PR còn bị chặn bởi đích ghi. Không có PR đã mở, CI từ xa đã chạy, merge hoặc release.
+Mã nguồn đã được đưa lên [SBeZ-Real/WindUI](https://github.com/SBeZ-Real/WindUI/tree/fluent-integration), nhánh `fluent-integration`, và [PR #1](https://github.com/SBeZ-Real/WindUI/pull/1) đang ở trạng thái draft. Nội dung bốn mốc triển khai trên GitHub khớp từng Git tree với bản local đã kiểm thử. Bảng ánh xạ commit nằm trong `TEST_REPORT.md`.
+
+GitHub Actions chưa có lượt chạy khi bàn giao; API danh sách workflows và runs trả về rỗng. Kết nối hiện tại không có thao tác bật Actions hoặc dispatch workflow; cần chủ repository kiểm tra mục Actions để chạy CI từ xa. PR giữ draft chờ CI và nghiệm thu Roblox thật. Không merge, tạo tag hoặc release.
