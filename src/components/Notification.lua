@@ -148,11 +148,15 @@ function NotificationModule.New(Config)
     pump()
     return Notification
 end
-function NotificationModule.Clear(clearHistory)
+function NotificationModule.Clear(clearHistory, windowID)
     pumping = true
     local current = table.clone(NotificationModule.Notifications)
-    for _, notification in pairs(current) do notification:Close("cleared") end
-    if clearHistory then table.clear(NotificationModule.History) end
+    for _, notification in pairs(current) do if not windowID or notification.WindowID == windowID then notification:Close("cleared") end end
+    if clearHistory then
+        for index = #NotificationModule.History, 1, -1 do
+            if not windowID or NotificationModule.History[index].WindowID == windowID then table.remove(NotificationModule.History, index) end
+        end
+    end
     pumping = false
     pump()
     changed()
@@ -160,7 +164,7 @@ end
 function NotificationModule.Center(Window)
     local popup = require("../runtime/Overlay").New(Window, { Width = 460, Height = 460 })
     popup:Build(function(parent)
-        popup:Button("Clear notifications", UDim2.new(), UDim2.new(1, 0, 0, 44), function() NotificationModule.Clear(true) end)
+        popup:Button("Clear this window", UDim2.new(), UDim2.new(1, 0, 0, 44), function() NotificationModule.Clear(true, Window.ID) end)
         local holder = New("Frame", { Parent = parent, Position = UDim2.fromOffset(0, 52), Size = UDim2.new(1, 0, 1, -52), BackgroundTransparency = 1 })
         local list = require("./ui/VirtualList").New(holder, 64, function(row, entry)
             row.Button.Text = entry.Title .. "\n" .. tostring(entry.Content or entry.Status or "")

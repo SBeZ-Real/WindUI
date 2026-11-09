@@ -30,7 +30,7 @@ mkdir -p dist
 trap 'rm -f dist/temp.lua' EXIT
 PKG=$(node -e "console.log(JSON.stringify(require('./package.json')))")
 VER=$(node -p "require('./package.json').version")
-BUILD_EPOCH=${SOURCE_DATE_EPOCH:-$(git log -1 --format=%ct)}
+BUILD_EPOCH=${SOURCE_DATE_EPOCH:-$(git log -1 --format=%ct 2>/dev/null || date +%s)}
 DATE=$(date -u -d "@$BUILD_EPOCH" '+%Y-%m-%d')
 HEADER=$(node - "$DATE" <<'JS'
 const fs = require('fs');

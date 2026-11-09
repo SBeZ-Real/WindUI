@@ -368,29 +368,33 @@ function TabModule.New(Config, UIScale)
 	local MouseConn
 	local IsHovering = false
 
-	-- ToolTip
-	if Tab.Desc then
-		Creator.AddSignal(Tab.UIElements.Main.InputBegan, function()
-			IsHovering = true
-			hoverTimer = task.spawn(function()
-				task.wait(0.35)
-				if IsHovering and not ToolTip then
-					ToolTip = CreateToolTip(Tab.Desc, TabModule.ToolTipParent, true)
-					ToolTip.Container.AnchorPoint = Vector2.new(0.5, 0.5)
-
-					local function updatePosition()
-						if ToolTip then
-							ToolTip.Container.Position = UDim2.new(0, Mouse.X, 0, Mouse.Y - 4)
-						end
-					end
-
-					updatePosition()
-					MouseConn = Creator.AddSignal(Mouse.Move, updatePosition)
-					ToolTip:Open()
-				end
-			end)
-		end)
-	end
+	local function showTooltip()
+        if not Tab.Desc and not Window.Compact then return end
+        IsHovering = true
+        if hoverTimer then task.cancel(hoverTimer) end
+        hoverTimer = task.delay(0.35, function()
+            if not IsHovering or ToolTip then return end
+            ToolTip = CreateToolTip(Window.Compact and Tab.Title or Tab.Desc, TabModule.ToolTipParent, false)
+            ToolTip.Container.AnchorPoint = Vector2.new(0, 0.5)
+            local function updatePosition()
+                local position, size, origin = Tab.UIElements.Main.AbsolutePosition, Tab.UIElements.Main.AbsoluteSize, TabModule.ToolTipParent.AbsolutePosition
+                ToolTip.Container.Position = UDim2.fromOffset(position.X - origin.X + size.X + 8, position.Y - origin.Y + size.Y / 2)
+            end
+            updatePosition()
+            ToolTip:Open()
+        end)
+    end
+    local function hideTooltip()
+        IsHovering = false
+        if hoverTimer then task.cancel(hoverTimer); hoverTimer = nil end
+        if MouseConn then Creator.RemoveSignal(MouseConn); MouseConn = nil end
+        if ToolTip then ToolTip:Close(); ToolTip = nil end
+    end
+    Creator.AddSignal(Tab.UIElements.Main.MouseEnter, showTooltip)
+    Creator.AddSignal(Tab.UIElements.Main.MouseLeave, hideTooltip)
+    Creator.AddSignal(Tab.UIElements.Main.SelectionGained, showTooltip)
+    Creator.AddSignal(Tab.UIElements.Main.SelectionLost, hideTooltip)
+    Creator.AddSignal(Tab.UIElements.Main.InputBegan, function(input) if input.UserInputType == Enum.UserInputType.Touch then showTooltip() end end)
 
 	Creator.AddSignal(Tab.UIElements.Main.MouseEnter, function()
 		if not Tab.Locked then
@@ -401,21 +405,7 @@ function TabModule.New(Config, UIScale)
 		end
 	end)
 	Creator.AddSignal(Tab.UIElements.Main.InputEnded, function()
-		if Tab.Desc then
-			IsHovering = false
-			if hoverTimer then
-				task.cancel(hoverTimer)
-				hoverTimer = nil
-			end
-			if MouseConn then
-				MouseConn:Disconnect()
-				MouseConn = nil
-			end
-			if ToolTip then
-				ToolTip:Close()
-				ToolTip = nil
-			end
-		end
+        hideTooltip()
 
 		if not Tab.Locked then
 			Creator.SetThemeTag(Tab.UIElements.Main.Frame, {

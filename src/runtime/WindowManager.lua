@@ -7,6 +7,7 @@ local WindowManager = {}
 function WindowManager.new(WindUI, parent)
     local self = { Windows = {}, Contexts = {}, Order = {}, NextID = 0, Parent = parent, Focused = nil }
     function self:Context(Config)
+        assert(Config.UIScale == nil or type(Config.UIScale) == "number" and Config.UIScale > 0 and Config.UIScale < math.huge, "UIScale must be a positive finite number")
         self.NextID += 1
         local id = Config.ID or "Window" .. self.NextID
         assert(Schema.Name(id), "Window ID must contain letters, digits, spaces, underscores or hyphens")
@@ -20,10 +21,14 @@ function WindowManager.new(WindUI, parent)
         context.Scope = Creator.Scope.new(Creator.RootScope, context)
         self.Contexts[id] = context
         context.Performance = Performance.new(context.Scope)
-        context.Scope:Give(context, function() self.Contexts[id] = nil; if WindUI.CurrentInput == context._InputToken then WindUI.CurrentInput = nil end end)
+        context.Scope:Give(context, function()
+            self.Contexts[id] = nil
+            if Config.Acrylic then require("../utils/Acrylic/Init").Disable(id) end
+            if WindUI.CurrentInput == context._InputToken then WindUI.CurrentInput = nil end
+        end)
         context.Scope:Run(function()
             for _, key in ipairs({ "ScreenGui", "DropdownGui", "TooltipGui" }) do
-                context[key] = Creator.New("ScreenGui", { Name = "WindUI/" .. id .. "/" .. key, Parent = self.Parent, IgnoreGuiInset = false })
+                context[key] = Creator.New("ScreenGui", { Name = "WindUI/" .. id .. "/" .. key, Parent = self.Parent, IgnoreGuiInset = false, DisplayOrder = (#self.Order + 1) * 4 })
                 Capabilities.Protect(context[key])
             end
             for _, name in ipairs({ "Window", "KeySystem", "Popups", "ToolTips" }) do Creator.New("Folder", { Name = name, Parent = context.ScreenGui }) end
@@ -136,6 +141,7 @@ function WindowManager.new(WindUI, parent)
             if layout ~= "Settings" and layout ~= "Compact" and layout ~= "Adaptive" then return false, "Unknown layout" end
             Window.Layout = layout
             local compact = layout == "Compact" or layout == "Adaptive" and viewport().X < 640
+            Window.Compact = compact
             local width = compact and 64 or expanded
             Window.UIElements.SideBarContainer.Size = UDim2.new(0, width, Window.UIElements.SideBarContainer.Size.Y.Scale, Window.UIElements.SideBarContainer.Size.Y.Offset)
             Window.UIElements.MainBar.Size = UDim2.new(1, -width, 1, -Window.Topbar.Height)
@@ -166,6 +172,7 @@ function WindowManager.new(WindUI, parent)
                     if element.__type == "ProgressBar" and element.Indeterminate then element.UIElements.Fill.Position = UDim2.fromScale(0.35, 0) end
                 end
             end
+            for _, element in ipairs(Window.AllElements) do if element._RefreshMotion then element:_RefreshMotion() end end
             return Window
         end
         function Window:SetReducedMotion(value) context.Performance.ReducedMotion = value == true; return Window:SetEffects(context.Performance.Quality) end
@@ -196,10 +203,16 @@ function WindowManager.new(WindUI, parent)
                 if type(data[key]) ~= "table" or #data[key] ~= 4 then return false, "Invalid window geometry" end
                 for _, value in ipairs(data[key]) do if type(value) ~= "number" or value ~= value or math.abs(value) > 100000 then return false, "Invalid window geometry" end end
             end
+            if data.Size[1] < 0 or data.Size[2] < 0 or data.Size[3] < 0 or data.Size[4] < 0 then return false, "Invalid window size" end
+            if data.Layout and not table.find({ "Settings", "Compact", "Adaptive" }, data.Layout) then return false, "Invalid workspace layout" end
+            if data.Tab and (type(data.Tab) ~= "number" or data.Tab % 1 ~= 0 or not Window.TabModule.Tabs[data.Tab]) then return false, "Unavailable workspace tab" end
+            if data.Theme then
+                local result, reason = Window:ImportTheme(data.Theme)
+                if result == false then return false, reason end
+            end
             Window:SetSize(UDim2.new(table.unpack(data.Size)))
             main.Position = UDim2.new(table.unpack(data.Position))
             if data.Layout then Window:SetLayout(data.Layout) end
-            if data.Theme then Window:ImportTheme(data.Theme) end
             if data.Tab then Window:SelectTab(data.Tab) end
             Window:FitViewport()
             return true

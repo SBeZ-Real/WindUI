@@ -3,6 +3,12 @@ local function same(a,b)
     for _,key in ipairs({"Scopes","Instances","Connections","Tweens","Tasks"})do assert(a[key]==b[key],key.." leak: "..a[key].."/"..b[key])end
 end
 for index=1,10 do
+    local popup=WindUI:Popup({Title="Global popup",Content="Scoped",Buttons={{Title="Close"}}})
+    popup:Close()
+end
+advance(1)
+same(WindUI.Creator.RootScope:Stats(),baseline)
+for index=1,10 do
     local window=WindUI:CreateWindow({Title="Immediate",Effects="Off"})
     window:Tab({Title="Cancelled"}):Toggle({Value=false,Callback=function()end})
     window:Destroy()
@@ -30,6 +36,11 @@ for index=1,20 do
 end
 advance(1)
 same(window:GetDiagnostics(),stable)
+local busy=tab:ProgressBar({Title="Busy",Indeterminate=true})
+window:SetReducedMotion(true)
+assert(busy.UIElements.Fill.Position.X.Scale==0.35,"Reduced motion lost indeterminate indicator")
+window:SetEffects("High");window:SetReducedMotion(false)
+assert(busy.UIElements.Fill.Position.X.Scale~=0.35,"Indeterminate motion did not resume")
 local size=window.Size
 window:ToggleFullscreen()
 assert(window.IsFullscreen and not window.CanResize)

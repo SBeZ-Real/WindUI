@@ -212,6 +212,7 @@ run.Heartbeat=signal();run.RenderStepped=signal()
 local input=game:GetService("UserInputService")
 input.TouchEnabled=false;input.KeyboardEnabled=true;input.MouseEnabled=true;input.GamepadEnabled=false
 input.TouchPinch=signal()
+input.LastInputTypeChanged=signal()
 input.GetFocusedTextBox=function()return nil end
 input.IsKeyDown=function()return false end
 input.GetMouseLocation=function()return Vector2.new(200,200)end

@@ -166,12 +166,12 @@ function Tooltip.New(Title, Parent, IsArrow, ColorType, Size, IsTextWrap)
         Tween(UIScale, .35, { Scale = .9 }, Enum.EasingStyle.Quint, Enum.EasingDirection.In):Play()
         
         IsDestroy = IsDestroy ~= false
-        if IsDestroy then 
-            task.wait(.35)
-            
-            Container.Visible = false
-            Container:Destroy() 
-            scope:Destroy()
+        if IsDestroy and not TooltipModule.Closing then
+            TooltipModule.Closing = true
+            task.delay(.35, function()
+                Container.Visible = false
+                scope:Destroy()
+            end)
         end
     end
     

@@ -8,7 +8,7 @@ end
 function Schema.Config(value)
     if type(value) ~= "table" then return nil, "Configuration must be an object" end
     if value.__version == nil then value = { __version = 1.2, __elements = value, __custom = {} } end
-    if type(value.__version) ~= "number" or value.__version > 1.2 then return nil, "Unsupported configuration schema" end
+    if type(value.__version) ~= "number" or value.__version ~= value.__version or value.__version <= 0 or value.__version > 1.2 then return nil, "Unsupported configuration schema" end
     if type(value.__elements) ~= "table" or (value.__custom ~= nil and type(value.__custom) ~= "table") then return nil, "Invalid configuration fields" end
     if value.__autoload ~= nil and type(value.__autoload) ~= "boolean" then return nil, "Invalid autoload value" end
     for name, entry in pairs(value.__elements) do

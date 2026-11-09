@@ -21,6 +21,13 @@ assert(window:SaveThemePreset("Blue"))
 window:SetAccent("#ff5500")
 assert(window:LoadThemePreset("Blue")~=false and window.Tokens.Color.Accent~="#ff5500")
 local before=window:ExportTheme()
+assert(window:SetAdaptiveTheme(function(capabilities)return {Mode=capabilities.Touch and "Light"or"Dark"}end))
+input.TouchEnabled=true
+input.LastInputTypeChanged:Fire()
+assert(window.Mode=="Light","Adaptive theme did not respond to input")
+window:SetAdaptiveTheme(false)
+input.TouchEnabled=false
+window:SetMode("Dark")
 assert(window:SetTokens({Color={Text="broken"}})==false)
 assert(window:SetTokens({Radius={Window=-1}})==false)
 assert(window:ImportTheme(http:JSONEncode({Style="Glass",Mode="Dark",Tokens={Color={Text=0}}}))==false)

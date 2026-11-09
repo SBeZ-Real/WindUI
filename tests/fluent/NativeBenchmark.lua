@@ -4,7 +4,7 @@ return function(WindUI,Count,Kind)
     local RunService=game:GetService("RunService")
     local samples={}
     local started=os.clock()
-    local Window=WindUI:CreateWindow({Title="WindUI benchmark",Style="Premium",Layout="Adaptive",Effects="Off"})
+    local Window=WindUI:CreateWindow({Title="WindUI benchmark",Size=UDim2.fromOffset(580,460)})
     local Tab=Window:Tab({Title="Benchmark"})
     local controls={}
     if Kind=="DataTable"then

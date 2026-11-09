@@ -1426,6 +1426,7 @@ return function(Config)
 	end
 
 	function Window:SetUIScale(v)
+        if type(v) ~= "number" or v <= 0 or v >= math.huge then return false, "UIScale must be a positive finite number" end
 		Config.WindUI.UIScale = v
 		Tween(Config.WindUI.UIScaleObj, 0.2, { Scale = v }, Enum.EasingStyle.Quint, Enum.EasingDirection.Out):Play()
 		return Window
@@ -1496,7 +1497,7 @@ return function(Config)
 
 	task.spawn(function()
 		--task.wait(1.38583)
-		Window:Open()
+		if not Window.Closed then Window:Open() end
 	end)
 
 	function Window:EditOpenButton(OpenButtonConfig)

@@ -70,17 +70,17 @@ function ThemeEngine.Attach(Window, Config, WindUI)
         return apply()
     end
     function Window:ExportTheme()
-        return game:GetService("HttpService"):JSONEncode({ Style = state.Style or "Premium", Mode = state.Mode, Accent = state.Accent, Tokens = state.Tokens })
+        return game:GetService("HttpService"):JSONEncode({ Style = state.Style, Theme = not state.Style and (state.Theme or WindUI.Theme.Name) or nil, Mode = state.Mode, Accent = state.Accent, Tokens = state.Tokens })
     end
     function Window:ImportTheme(json)
         local valid, value = pcall(function() return game:GetService("HttpService"):JSONDecode(json) end)
-        if not valid or type(value) ~= "table" or not Tokens.Styles[value.Style] or not Tokens.Modes[value.Mode] then return false, "Invalid theme schema" end
+        if not valid or type(value) ~= "table" or not (Tokens.Styles[value.Style] or value.Style == nil and WindUI.Themes[value.Theme]) or not Tokens.Modes[value.Mode] then return false, "Invalid theme schema" end
         if value.Accent and (type(value.Accent) ~= "string" or not value.Accent:match("^#%x%x%x%x%x%x$")) then return false, "Invalid accent" end
         if value.Tokens and type(value.Tokens) ~= "table" then return false, "Invalid tokens" end
-        local resolved, reason = pcall(Tokens.Resolve, value.Style, value.Mode, value.Accent, value.Tokens)
+        local resolved, reason = pcall(Tokens.Resolve, value.Style or "Premium", value.Mode, value.Accent, value.Tokens)
         if not resolved then return false, tostring(reason) end
         previous = Tokens.Merge(state, {})
-        state.Style, state.Mode, state.Accent, state.Tokens = value.Style, value.Mode, value.Accent, value.Tokens or {}
+        state.Style, state.Mode, state.Accent, state.Tokens, state.Theme, state.FollowGlobal = value.Style, value.Mode, value.Accent, value.Tokens or {}, value.Theme, false
         local success, result = pcall(apply)
         if not success then state = previous; apply(); return false, tostring(result) end
         return result
@@ -99,6 +99,35 @@ function ThemeEngine.Attach(Window, Config, WindUI)
         local json, message = Window.ConfigManager.Storage:Read(Window.ConfigManager.BasePath .. "themes/" .. name .. ".json")
         if not json then return false, message or "Theme preset does not exist" end
         return Window:ImportTheme(json)
+    end
+    local adaptiveConnection
+    local adaptiveViewport
+    function Window:SetAdaptiveTheme(resolver)
+        if resolver ~= false and type(resolver) ~= "function" then return false, "Adaptive theme requires a resolver function or false" end
+        if adaptiveConnection then adaptiveConnection:Disconnect(); Window.Scope:Forget(adaptiveConnection); adaptiveConnection = nil end
+        if adaptiveViewport then adaptiveViewport:Disconnect(); Window.Scope:Forget(adaptiveViewport); adaptiveViewport = nil end
+        Window.AdaptiveTheme = resolver
+        if resolver == false then return Window end
+        local function refresh()
+            local valid, value = pcall(resolver, require("./Capabilities").Detect(), context.ScreenGui.AbsoluteSize)
+            if not valid or type(value) ~= "table" then return false, "Adaptive theme resolver must return a table" end
+            local style, mode, accent = value.Style or state.Style or "Premium", value.Mode or state.Mode, value.Accent or state.Accent
+            local success, reason = pcall(Tokens.Resolve, style, mode, accent, state.Tokens)
+            if not success then return false, tostring(reason) end
+            state.Style, state.Mode, state.Accent = style, mode, accent
+            return apply()
+        end
+        local accepted, message = refresh()
+        if accepted == false then Window.AdaptiveTheme = false; return false, message end
+        adaptiveConnection = Window.Scope:Connect(game:GetService("UserInputService").LastInputTypeChanged, function()
+            local result, reason = refresh()
+            if result == false then warn("[WindUI adaptive theme] " .. tostring(reason)) end
+        end)
+        adaptiveViewport = Window.Scope:Connect(context.ScreenGui:GetPropertyChangedSignal("AbsoluteSize"), function()
+            local result, reason = refresh()
+            if result == false then warn("[WindUI adaptive theme] " .. tostring(reason)) end
+        end)
+        return Window
     end
     function Window:ThemeStudio()
         previous = Tokens.Merge(state, {})
@@ -125,6 +154,7 @@ function ThemeEngine.Attach(Window, Config, WindUI)
     Window._GlobalTheme = function()
         if state.FollowGlobal and not state.Style then context.Theme = WindUI.Theme; apply() end
     end
+    if Config.AdaptiveTheme then Window:SetAdaptiveTheme(Config.AdaptiveTheme) end
     return apply()
 end
 

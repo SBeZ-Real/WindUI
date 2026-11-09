@@ -122,12 +122,13 @@ function DropdownMenu.New(Config, Dropdown, Element, Type)
 		local menu = Dropdown.UIElements.MenuCanvas
 
         local viewport = Config.WindUI.DropdownGui.AbsoluteSize
+        local origin = Config.WindUI.DropdownGui.AbsolutePosition
         local width = math.min(menu.AbsoluteSize.X, math.max(100, viewport.X - 16))
         local height = math.min(menu.AbsoluteSize.Y, math.max(60, viewport.Y - 16))
         menu.Size = UDim2.fromOffset(width, height)
-        local x = math.clamp(button.AbsolutePosition.X + button.AbsoluteSize.X, width + 8, math.max(width + 8, viewport.X - 8))
-        local y = button.AbsolutePosition.Y + button.AbsoluteSize.Y + 4
-        if y + height > viewport.Y - 8 then y = button.AbsolutePosition.Y - height - 4 end
+        local x = math.clamp(button.AbsolutePosition.X - origin.X + button.AbsoluteSize.X, width + 8, math.max(width + 8, viewport.X - 8))
+        local y = button.AbsolutePosition.Y - origin.Y + button.AbsoluteSize.Y + 4
+        if y + height > viewport.Y - 8 then y = button.AbsolutePosition.Y - origin.Y - height - 4 end
         menu.Position = UDim2.fromOffset(x, math.clamp(y, 8, math.max(8, viewport.Y - height - 8)))
 	end
 

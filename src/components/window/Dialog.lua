@@ -131,6 +131,7 @@ function DialogModule.Create(Key, Type, Window, WindUI, Parent)
     function Dialog:Open()
         if Dialog.Closed then return end
         if not Key and Window then
+            Window:Focus()
             if Window.Popup and Window.Popup ~= Dialog then Window.Popup:Close("replaced") end
             Window.Popup = Dialog
             previous = GuiService.SelectedObject
@@ -166,8 +167,14 @@ function DialogModule.Create(Key, Type, Window, WindUI, Parent)
         return function() end
     end
     if not Key then
-        Creator.AddSignal(game:GetService("UserInputService").InputBegan, function(input)
-            if Window.Popup == Dialog and (input.KeyCode == Enum.KeyCode.Escape or input.KeyCode == Enum.KeyCode.ButtonB) then Dialog:Close("cancelled") end
+        Creator.AddSignal(game:GetService("UserInputService").InputBegan, function(input, processed)
+            if Window.Popup ~= Dialog or WindUI.WindowManager.Focused ~= Window then return end
+            if input.KeyCode == Enum.KeyCode.Escape or input.KeyCode == Enum.KeyCode.ButtonB then Dialog:Close("cancelled") end
+            if not processed and input.KeyCode == Enum.KeyCode.Tab then
+                local controls = {}
+                for _, object in ipairs(Dialog.UIElements.Main:GetDescendants()) do if object:IsA("GuiButton") and object.Visible and object.Selectable then table.insert(controls, object) end end
+                if #controls > 0 then GuiService.SelectedObject = controls[((table.find(controls, GuiService.SelectedObject) or 0) % #controls) + 1] end
+            end
         end)
     end
 

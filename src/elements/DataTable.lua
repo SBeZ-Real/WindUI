@@ -17,7 +17,8 @@ function Element:New(Config)
         row.Button.BackgroundTransparency = model.Selection[item.Index] and 0.78 or 0.96
         for index, column in ipairs(DataTable.Columns) do
             if not row.Cells[index] then row.Cells[index] = Creator.New("TextLabel", { Parent = row.Button, Size = UDim2.new(1 / #DataTable.Columns, -8, 1, 0), Position = UDim2.new((index - 1) / #DataTable.Columns, 4, 0, 0), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, ThemeTag = { TextColor3 = "Text" } }) end
-            row.Cells[index].Text = tostring(item.Row[column.Key or column] or "")
+            local value = item.Row[column.Key or column]
+            row.Cells[index].Text = value == nil and "" or tostring(value)
         end
     end, function(item)
         model:Select(item.Index, Config.Multi == true)

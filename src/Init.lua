@@ -304,8 +304,12 @@ function WindUI:Gradient(stops, props)
 end
 
 function WindUI:Popup(PopupConfig)
+    PopupConfig = table.clone(PopupConfig)
 	PopupConfig.WindUI = WindUI
-	return require("./components/popup/Init").new(PopupConfig, WindUI.ScreenGui.Popups)
+    local scope = Creator.Scope.new(Creator.RootScope)
+    local success, popup = pcall(function() return scope:Run(require("./components/popup/Init").new, PopupConfig, WindUI.ScreenGui.Popups) end)
+    if not success then scope:Destroy(); error(popup, 0) end
+    return scope:Bind(popup)
 end
 
 WindUI.Themes = require("./themes/Init")(WindUI, Creator)
@@ -354,9 +358,10 @@ function WindUI:CreateWindow(Config)
 
 		local keyScope = Creator.Scope.new(context.Scope)
         local function loadKeysystem()
-			keyScope:Run(KeySystem.new, Config, Filename, function(c)
+            local success, message = pcall(function() keyScope:Run(KeySystem.new, Config, Filename, function(c)
 				CanLoadWindow = c
-			end)
+			end) end)
+            if not success then context.Scope:Destroy(); error(message, 0) end
 		end
 
 		local keyPath = (Config.Folder or "Temp") .. "/" .. Filename .. ".key"
@@ -421,8 +426,9 @@ function WindUI:CreateWindow(Config)
 
 		repeat
 			task.wait()
-		until CanLoadWindow
+		until CanLoadWindow or context.Cancelled or context.Scope.Destroyed
         keyScope:Destroy()
+        if context.Cancelled or context.Scope.Destroyed then context.Scope:Destroy(); return nil, "Window creation cancelled" end
 	end
 
 	local started = os.clock()

@@ -33,6 +33,7 @@ jobs:
                   set -euo pipefail
                   npm run build 2>&1 | tee build.log
                   npm test 2>&1 | tee -a build.log
+                  rojo build tests/fluent/studio.project.json --output WindUI-Gallery.rbxlx 2>&1 | tee -a build.log
 
             - name: Prepare result for comment
               if: always()

@@ -23,8 +23,11 @@ jobs:
       - run: bash build/setup-test-tools.sh
       - run: npm run build
       - run: npm test
+      - run: rojo build tests/fluent/studio.project.json --output WindUI-Gallery.rbxlx
       - uses: actions/upload-artifact@v4
         if: success()
         with:
           name: windui-distribution
-          path: dist/main.lua
+          path: |
+            dist/main.lua
+            WindUI-Gallery.rbxlx

@@ -192,6 +192,7 @@ function KeySystem.new(Config, Filename, func, keyValidator)
 	-- end
 
 	local ExitButton = CreateButton("Exit", "log-out", function()
+		Config.WindUI.Cancelled = true
 		KeyDialog:Close()()
 	end, "Tertiary", ButtonsContainer.Frame)
 
@@ -204,7 +205,8 @@ function KeySystem.new(Config, Filename, func, keyValidator)
 
 	if Config.KeySystem.URL then
 		CreateButton("Get key", "key", function()
-			setclipboard(Config.KeySystem.URL)
+            local success, message = require("../runtime/Capabilities").Copy(Config.KeySystem.URL)
+            if not success then Config.WindUI:Notify({ Title = "Key link", Content = message .. ": " .. Config.KeySystem.URL }) end
 		end, "Secondary", ButtonsContainer.Frame)
 	end
 

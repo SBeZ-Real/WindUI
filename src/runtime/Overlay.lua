@@ -22,6 +22,7 @@ function Overlay.New(Window, options)
         self.Content = Creator.New("Frame", { Parent = self.Blocker, BackgroundTransparency = 1, Size = UDim2.new(1, -24, 1, -24), Position = UDim2.fromOffset(12, 12) })
         Creator.AddSignal(self.Shield.Activated, function() if options.Dismissable ~= false then self:Close("cancelled") end end)
         Creator.AddSignal(game:GetService("UserInputService").InputBegan, function(input, processed)
+            if Window.Context.WindowManager.Focused ~= Window then return end
             if input.KeyCode == Enum.KeyCode.Escape or input.KeyCode == Enum.KeyCode.ButtonB then
                 if options.Dismissable ~= false then self:Close("cancelled") end
             elseif not processed and input.KeyCode == Enum.KeyCode.Tab and #self.Controls > 0 then
@@ -35,7 +36,15 @@ function Overlay.New(Window, options)
             self.Frame.Position = UDim2.fromOffset(math.clamp(self.Frame.Position.X.Offset, 8, math.max(8, size.X - self.Frame.Size.X.Offset - 8)), math.clamp(self.Frame.Position.Y.Offset, 8, math.max(8, size.Y - self.Frame.Size.Y.Offset - 8)))
         end)
     end)
-    function self:Build(callback) return scope:Run(callback, self.Content, self) end
+    function self:Build(callback)
+        local result = scope:Run(callback, self.Content, self)
+        if not game:GetService("UserInputService"):GetFocusedTextBox() then
+            for _, object in ipairs(self.Content:GetDescendants()) do
+                if object:IsA("GuiButton") and object.Visible and object.Selectable then GuiService.SelectedObject = object; break end
+            end
+        end
+        return result
+    end
     function self:Button(text, position, size, callback)
         local button = Creator.New("TextButton", { Parent = self.Content, Text = text, Size = size, Position = position, TextSize = 14, Selectable = true, BackgroundTransparency = 0.9, ThemeTag = { BackgroundColor3 = "Text", TextColor3 = "Text" } }, { Creator.New("UICorner", { CornerRadius = UDim.new(0, 6) }) })
         table.insert(self.Controls, button)
@@ -51,6 +60,7 @@ function Overlay.New(Window, options)
         scope:Destroy()
     end
     scope:Give(self, function()
+        if GuiService.SelectedObject and GuiService.SelectedObject:IsDescendantOf(self.Shield) then GuiService.SelectedObject = previous and previous.Parent and previous or nil end
         if not self.Closed then self.Closed = true; self.Result = "destroyed"; Creator.SafeCallback(options.OnClose, self.Result) end
         if Window.Popup == self then Window.Popup = nil end
     end)

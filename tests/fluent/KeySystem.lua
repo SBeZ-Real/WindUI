@@ -34,3 +34,23 @@ local final=WindUI.Creator.RootScope:Stats()
 assert(final.Scopes==baseline.Scopes and final.Instances==baseline.Instances and final.Connections==baseline.Connections,"Key scope leaked")
 assert(#warnings==0,table.concat(warnings,"\n"))
 print("KEYSYSTEM PASS: invalid key blocked, valid key accepted, independent GUI and cleanup")
+local cancelled,reason,finished
+local pending=task.spawn(function()
+    cancelled,reason=WindUI:CreateWindow({ID="CancelKey",Title="Cancel",KeySystem={Key="secret"}})
+    finished=true
+end)
+advance(0.1)
+local exitButton
+for _,object in ipairs(WindUI.WindowManager.Contexts.CancelKey.ScreenGui.KeySystem:GetDescendants())do
+    if object:IsA("TextLabel")and object.Text=="Exit"then
+        local parent=object.Parent
+        while parent and not parent:IsA("GuiButton")do parent=parent.Parent end
+        exitButton=parent
+    end
+end
+assert(exitButton)
+exitButton.Activated:Fire()
+advance(0.5)
+assert(finished and cancelled==nil and reason=="Window creation cancelled","Key cancel left a waiting creation")
+assert(WindUI.WindowManager.Contexts.CancelKey==nil,"Cancelled key context leaked")
+print("KEYSYSTEM CANCEL PASS: exit aborts pending creation without accepting the key")

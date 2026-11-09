@@ -2,6 +2,9 @@ local Capabilities = {}
 
 function Capabilities.Detect()
     local RunService = game:GetService("RunService")
+    local input = game:GetService("UserInputService")
+    local preferred
+    pcall(function() preferred = input.PreferredInput end)
     return {
         Studio = RunService:IsStudio(),
         File = type(readfile) == "function" and type(writefile) == "function" and type(isfile) == "function" and type(isfolder) == "function" and type(makefolder) == "function",
@@ -14,6 +17,8 @@ function Capabilities.Detect()
         Touch = game:GetService("UserInputService").TouchEnabled,
         Keyboard = game:GetService("UserInputService").KeyboardEnabled,
         Gamepad = game:GetService("UserInputService").GamepadEnabled,
+        PreferredInput = preferred,
+        LastInputType = input:GetLastInputType(),
     }
 end
 
@@ -33,6 +38,20 @@ function Capabilities.Protect(gui)
         local success, message = pcall(protect, gui)
         if not success then warn("[WindUI GUI protection] " .. tostring(message)) end
     end
+end
+
+function Capabilities.Copy(value)
+    local copy = setclipboard or toclipboard
+    if type(copy) ~= "function" then return false, "Clipboard is unavailable in this environment" end
+    return pcall(copy, tostring(value))
+end
+
+function Capabilities.Request(options)
+    local provider = http_request or (syn and syn.request) or request
+    if type(provider) ~= "function" then return nil, "HTTP request capability is unavailable" end
+    local success, result = pcall(provider, options)
+    if not success then return nil, tostring(result) end
+    return result
 end
 
 function Capabilities.ValidPath(path)
